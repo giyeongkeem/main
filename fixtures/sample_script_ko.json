@@ -1,0 +1,28 @@
+{
+  "title": "{topic} — 30초 만에 핵심 정리",
+  "description": "{topic}에 대해 꼭 알아야 할 핵심만 골라 30초 안에 정리했습니다. 끝까지 보면 손해 안 봅니다.",
+  "tags": ["쇼츠", "지식", "상식", "꿀팁", "정보", "1분지식"],
+  "hook": "이거 모르면 진짜 손해입니다.",
+  "segments": [
+    {
+      "text": "이거 모르면 진짜 손해입니다.",
+      "search_keywords": ["city", "night"]
+    },
+    {
+      "text": "오늘은 누구나 궁금해하는 주제를 딱 삼십 초 만에 정리해 드릴게요.",
+      "search_keywords": ["clock", "time"]
+    },
+    {
+      "text": "첫 번째 핵심은 기본기입니다. 기본을 알면 절반은 끝난 거예요.",
+      "search_keywords": ["books", "study"]
+    },
+    {
+      "text": "두 번째는 꾸준함입니다. 하루 십 분이면 충분합니다.",
+      "search_keywords": ["running", "sunrise"]
+    },
+    {
+      "text": "도움이 됐다면 구독과 좋아요, 잊지 마세요!",
+      "search_keywords": ["thumbs", "up"]
+    }
+  ]
+}

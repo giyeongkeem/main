@@ -1,0 +1,28 @@
+{
+  "title": "{topic} — Everything You Need in 30 Seconds",
+  "description": "The essentials of {topic}, condensed into 30 seconds. Stick around for the last tip.",
+  "tags": ["shorts", "facts", "tips", "knowledge", "learn", "quick"],
+  "hook": "You are missing out if you don't know this.",
+  "segments": [
+    {
+      "text": "You are missing out if you don't know this.",
+      "search_keywords": ["city", "night"]
+    },
+    {
+      "text": "Today we break down a topic everyone asks about, in just thirty seconds.",
+      "search_keywords": ["clock", "time"]
+    },
+    {
+      "text": "First, the basics. Master the fundamentals and you are halfway there.",
+      "search_keywords": ["books", "study"]
+    },
+    {
+      "text": "Second, consistency. Ten minutes a day is all it takes.",
+      "search_keywords": ["running", "sunrise"]
+    },
+    {
+      "text": "If this helped, hit like and subscribe!",
+      "search_keywords": ["thumbs", "up"]
+    }
+  ]
+}

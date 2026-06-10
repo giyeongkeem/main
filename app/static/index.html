@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shorts Studio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🎬 Shorts Studio</h1>
+    <p class="subtitle">주제만 입력하면 쇼츠 영상이 자동으로 만들어집니다</p>
+    <div id="health-banner"></div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>새 쇼츠 만들기</h2>
+      <form id="job-form">
+        <div class="row">
+          <input type="text" id="topic" placeholder="주제를 입력하세요 (예: 아침 운동의 장점)" required maxlength="300">
+          <select id="language">
+            <option value="ko" selected>한국어</option>
+            <option value="en">English</option>
+          </select>
+          <button type="submit" id="submit-btn">생성</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>작업 목록</h2>
+      <div id="jobs"></div>
+    </section>
+  </main>
+
+  <div id="preview-modal" class="modal hidden">
+    <div class="modal-content">
+      <button class="close-btn" onclick="closePreview()">✕</button>
+      <div class="preview-layout">
+        <video id="preview-video" controls playsinline></video>
+        <div id="preview-meta"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
