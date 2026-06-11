@@ -118,3 +118,32 @@ select, button {
   background: #e0245e; color: #fff; text-decoration: none;
   border-radius: 8px; padding: 10px 16px; font-weight: 700;
 }
+
+/* Mobile (iPhone) layout */
+@media (max-width: 640px) {
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  header { padding-top: calc(20px + env(safe-area-inset-top)); }
+  main { padding: 10px; }
+  .card { padding: 16px; }
+
+  .row { flex-direction: column; }
+  .row select, .row button { width: 100%; }
+  input[type="text"], select, button { font-size: 16px; } /* prevents iOS zoom-on-focus */
+
+  .job { flex-wrap: wrap; row-gap: 8px; }
+  .job-info { flex: 1 1 100%; }
+  .progress-wrap { flex: 1; min-width: 110px; }
+  .actions button { padding: 9px 13px; }
+
+  .modal { align-items: flex-end; }
+  .modal-content {
+    width: 100%; max-width: none;
+    border-radius: 14px 14px 0 0;
+    max-height: 94vh;
+    padding-bottom: calc(22px + env(safe-area-inset-bottom));
+  }
+  .preview-layout { flex-direction: column; align-items: center; }
+  #preview-video { width: min(100%, 300px); max-height: 56vh; }
+  #preview-meta { width: 100%; }
+  .dl-link { display: block; text-align: center; }
+}

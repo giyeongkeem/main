@@ -119,7 +119,21 @@ function jsStr(s) {
 }
 
 async function copyText(btn, text) {
-  await navigator.clipboard.writeText(text);
+  try {
+    // clipboard API requires a secure context — unavailable over http://<LAN IP>
+    if (!navigator.clipboard) throw new Error("no clipboard API");
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+  }
   const orig = btn.textContent;
   btn.textContent = "✓";
   setTimeout(() => (btn.textContent = orig), 1200);
