@@ -1,10 +1,12 @@
 import asyncio
+import base64
+import secrets
 import shutil
 import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import config, db
@@ -22,6 +24,26 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Shorts Studio", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def basic_auth(request, call_next):
+    if config.DASHBOARD_PASSWORD:
+        header = request.headers.get("authorization", "")
+        ok = False
+        if header.startswith("Basic "):
+            try:
+                decoded = base64.b64decode(header[6:]).decode()
+                _, _, supplied = decoded.partition(":")
+                ok = secrets.compare_digest(supplied, config.DASHBOARD_PASSWORD)
+            except Exception:
+                ok = False
+        if not ok:
+            return Response(
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="Shorts Studio"'},
+            )
+    return await call_next(request)
 
 
 def _to_out(job: dict) -> JobOut:

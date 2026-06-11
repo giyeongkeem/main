@@ -17,6 +17,9 @@ PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
 SHORTS_MODEL = os.environ.get("SHORTS_MODEL", "claude-opus-4-8")
 MOCK_SCRIPT = os.environ.get("MOCK_SCRIPT", "") == "1"
 MOCK_TTS = os.environ.get("MOCK_TTS", "") == "1"
+# When set, every request must authenticate (HTTP Basic, any username).
+# Required when exposing the dashboard through a public tunnel.
+DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
 
 VOICES = {
     "ko": "ko-KR-SunHiNeural",
