@@ -5,6 +5,7 @@ import json
 import shutil
 import traceback
 from pathlib import Path
+from typing import Optional
 
 import httpx
 
@@ -12,8 +13,8 @@ from .. import config, db
 from . import render, subtitles, tts, visuals
 from .script import generate_script
 
-queue: asyncio.Queue[str] = asyncio.Queue()
-current_job_id: str | None = None
+queue: asyncio.Queue = asyncio.Queue()
+current_job_id: Optional[str] = None
 
 
 def job_dir(job_id: str) -> Path:
