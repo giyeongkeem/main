@@ -43,6 +43,17 @@ if [ -n "$IP" ]; then
 else
   echo "  ⚠️ LAN IP를 찾지 못했습니다. 시스템 설정 > Wi-Fi에서 IP를 확인하세요."
 fi
+
+# Tailscale이 설치돼 있으면 셀룰러에서도 쓸 수 있는 주소를 함께 안내
+TS_BIN=$(command -v tailscale 2>/dev/null || true)
+[ -z "$TS_BIN" ] && [ -x "/Applications/Tailscale.app/Contents/MacOS/Tailscale" ] && TS_BIN="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+if [ -n "$TS_BIN" ]; then
+  TS_IP=$("$TS_BIN" ip -4 2>/dev/null | head -1)
+  if [ -n "$TS_IP" ]; then
+    echo "  셀룰러:     http://${TS_IP}:${PORT}"
+    echo "              (아이폰 Tailscale 앱이 켜져 있으면 어디서든 접속)"
+  fi
+fi
 echo "──────────────────────────────────────────────"
 
 exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT"
