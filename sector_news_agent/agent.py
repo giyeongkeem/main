@@ -4,6 +4,9 @@
 1. research_sector() — 섹터마다 Claude + 서버사이드 web_search/web_fetch 도구로
    최근 주요 이슈를 수집·정리한 섹터 브리핑을 만든다.
 2. synthesize_report() — 섹터 브리핑들을 모아 투자 관점의 최종 리포트를 작성한다.
+
+progress 콜백(kind, message)으로 진행 상황을 전달한다.
+kind: "status"(단계 전환) | "tool"(도구 실행) | "text"(생성 텍스트 델타)
 """
 
 from __future__ import annotations
@@ -11,11 +14,14 @@ from __future__ import annotations
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 from zoneinfo import ZoneInfo
 
 import anthropic
 
 from .config import Config, Sector
+
+ProgressFn = Callable[[str, str], None]
 
 # 서버사이드 도구가 반복 한도에 걸려 pause_turn으로 멈췄을 때 이어서 실행하는 최대 횟수
 MAX_CONTINUATIONS = 6
@@ -53,6 +59,13 @@ SYNTHESIS_SYSTEM = """\
 """
 
 
+def _default_progress(kind: str, message: str) -> None:
+    if kind == "text":
+        print(message, end="", flush=True, file=sys.stderr)
+    else:
+        print(f"\n{message}", file=sys.stderr)
+
+
 def _stream_until_done(
     client: anthropic.Anthropic,
     *,
@@ -61,7 +74,7 @@ def _stream_until_done(
     model: str,
     effort: str,
     tools: list[dict] | None = None,
-    verbose: bool = True,
+    progress: ProgressFn = _default_progress,
 ) -> anthropic.types.Message:
     """스트리밍으로 호출하고, 서버사이드 도구의 pause_turn이면 이어서 실행한다."""
     messages = list(messages)
@@ -80,12 +93,10 @@ def _stream_until_done(
 
         with client.messages.stream(**kwargs) as stream:
             for event in stream:
-                if not verbose:
-                    continue
                 if event.type == "content_block_start" and event.content_block.type == "server_tool_use":
-                    print(f"\n  [도구 실행: {event.content_block.name}]", file=sys.stderr)
+                    progress("tool", f"[도구 실행: {event.content_block.name}]")
                 elif event.type == "content_block_delta" and event.delta.type == "text_delta":
-                    print(event.delta.text, end="", flush=True, file=sys.stderr)
+                    progress("text", event.delta.text)
             response = stream.get_final_message()
 
         if response.stop_reason == "refusal":
@@ -103,7 +114,13 @@ def _text_of(response: anthropic.types.Message) -> str:
     return "\n".join(block.text for block in response.content if block.type == "text").strip()
 
 
-def research_sector(client: anthropic.Anthropic, cfg: Config, sector: Sector, today: str) -> str:
+def research_sector(
+    client: anthropic.Anthropic,
+    cfg: Config,
+    sector: Sector,
+    today: str,
+    progress: ProgressFn = _default_progress,
+) -> str:
     """단일 섹터의 최근 이슈를 웹 검색으로 수집해 브리핑 텍스트를 반환한다."""
     keywords = ", ".join(sector.keywords) if sector.keywords else "(없음)"
     prompt = f"""\
@@ -129,11 +146,18 @@ def research_sector(client: anthropic.Anthropic, cfg: Config, sector: Sector, to
         model=cfg.model,
         effort=cfg.effort,
         tools=tools,
+        progress=progress,
     )
     return _text_of(response)
 
 
-def synthesize_report(client: anthropic.Anthropic, cfg: Config, briefings: list[str], today: str) -> str:
+def synthesize_report(
+    client: anthropic.Anthropic,
+    cfg: Config,
+    briefings: list[str],
+    today: str,
+    progress: ProgressFn = _default_progress,
+) -> str:
     """섹터 브리핑들을 종합해 최종 투자 리포트(Markdown)를 반환한다."""
     joined = "\n\n---\n\n".join(briefings)
     prompt = f"""\
@@ -150,11 +174,16 @@ def synthesize_report(client: anthropic.Anthropic, cfg: Config, briefings: list[
         messages=[{"role": "user", "content": prompt}],
         model=cfg.model,
         effort=cfg.effort,
+        progress=progress,
     )
     return _text_of(response)
 
 
-def run(cfg: Config, output_path: Path | None = None) -> Path:
+def run(
+    cfg: Config,
+    output_path: Path | None = None,
+    progress: ProgressFn = _default_progress,
+) -> Path:
     """전체 파이프라인을 실행하고 리포트 파일 경로를 반환한다."""
     client = anthropic.Anthropic()
     now = datetime.now(ZoneInfo(cfg.timezone))
@@ -162,15 +191,15 @@ def run(cfg: Config, output_path: Path | None = None) -> Path:
 
     briefings: list[str] = []
     for i, sector in enumerate(cfg.sectors, 1):
-        print(f"\n=== [{i}/{len(cfg.sectors)}] {sector.region_label} · {sector.name} 리서치 중 ===", file=sys.stderr)
-        briefings.append(research_sector(client, cfg, sector, today))
+        progress("status", f"=== [{i}/{len(cfg.sectors)}] {sector.region_label} · {sector.name} 리서치 중 ===")
+        briefings.append(research_sector(client, cfg, sector, today, progress=progress))
 
-    print("\n=== 종합 리포트 작성 중 ===", file=sys.stderr)
-    report = synthesize_report(client, cfg, briefings, today)
+    progress("status", "=== 종합 리포트 작성 중 ===")
+    report = synthesize_report(client, cfg, briefings, today, progress=progress)
 
     if output_path is None:
         cfg.output_dir.mkdir(parents=True, exist_ok=True)
         output_path = cfg.output_dir / f"{now.strftime('%Y-%m-%d')}_sector_report.md"
     output_path.write_text(report + "\n", encoding="utf-8")
-    print(f"\n\n리포트 저장 완료: {output_path}", file=sys.stderr)
+    progress("status", f"리포트 저장 완료: {output_path}")
     return output_path

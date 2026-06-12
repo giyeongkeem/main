@@ -9,12 +9,26 @@ Claude API의 서버사이드 웹 검색/페치 도구를 사용하므로 별도
 1. **섹터 리서치** — `config.yaml`에 정의한 섹터마다 Claude가 웹 검색(`web_search`)과 페이지 조회(`web_fetch`)로 최근 주요 이슈를 수집하고, 사실/시장 반응/투자 의미/출처를 정리한 브리핑을 작성합니다.
 2. **종합 리포트** — 섹터 브리핑들을 종합해 핵심 요약, 국내/해외 섹터 분석, 단기·중기 투자 관점, 리스크 요인, 출처가 담긴 리포트를 `reports/YYYY-MM-DD_sector_report.md`로 저장합니다.
 
+## 필요한 것
+
+**Claude API 키 1개**(`ANTHROPIC_API_KEY`)만 있으면 됩니다. 웹 검색이 Claude의 서버사이드 도구로 동작하므로 별도의 뉴스 API 키는 필요 없습니다. 키는 [console.anthropic.com](https://console.anthropic.com)에서 발급합니다.
+
 ## 사용법
+
+### 웹 UI (권장)
 
 ```bash
 pip install -r requirements.txt
 export ANTHROPIC_API_KEY=sk-ant-...
 
+python -m sector_news_agent.web             # http://localhost:8000
+```
+
+브라우저에서 접속 후 **리포트 생성** 버튼을 누르면 섹터별 리서치 → 종합 리포트 생성 과정이 실시간으로 표시되고, 완료된 리포트가 화면에 렌더링됩니다. 과거 리포트 목록도 확인할 수 있습니다.
+
+### CLI
+
+```bash
 python -m sector_news_agent                 # config.yaml 기준 실행
 python -m sector_news_agent --config my.yaml --output today.md
 ```

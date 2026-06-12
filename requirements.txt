@@ -1,2 +1,4 @@
 anthropic>=0.49.0
 PyYAML>=6.0
+fastapi>=0.110
+uvicorn>=0.29
