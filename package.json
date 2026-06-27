@@ -1,0 +1,25 @@
+{
+  "name": "fitmatch-seoul",
+  "version": "0.1.0",
+  "private": true,
+  "description": "핏매치 — 서울의 검증된 피트니스·퍼스널 트레이너·필라테스 전문가를 비교하고 선택하는 디렉터리 서비스",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "15.5.19",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "3.4.19",
+    "typescript": "^5.5.4"
+  }
+}
