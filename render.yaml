@@ -1,0 +1,13 @@
+# Render.com 배포 설정 (무료 플랜 가능)
+# 1. github에 푸시 → render.com 에서 "New + → Blueprint" → 이 저장소 선택
+# 2. 배포 후 Environment 탭에서 ANTHROPIC_API_KEY, APP_PASSWORD 값을 입력
+services:
+  - type: web
+    name: sector-news-agent
+    runtime: docker
+    plan: free
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false        # 대시보드에서 직접 입력 (시크릿)
+      - key: APP_PASSWORD
+        sync: false        # 공개 URL 접속용 비밀번호 (직접 입력)

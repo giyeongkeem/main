@@ -15,18 +15,42 @@ Claude API의 서버사이드 웹 검색/페치 도구를 사용하므로 별도
 
 ## 사용법
 
-### 웹 UI (권장)
+실행 방법은 3가지입니다: **로컬 웹 UI**, **클라우드 배포(어디서나 접속)**, **GitHub Actions(매일 자동)**.
+
+### 1) 로컬 웹 UI
 
 ```bash
 pip install -r requirements.txt
 export ANTHROPIC_API_KEY=sk-ant-...
 
 python -m sector_news_agent.web             # http://localhost:8000
+# 또는: ANTHROPIC_API_KEY=sk-ant-... ./run_local.sh
 ```
 
-브라우저에서 접속 후 **리포트 생성** 버튼을 누르면 섹터별 리서치 → 종합 리포트 생성 과정이 실시간으로 표시되고, 완료된 리포트가 화면에 렌더링됩니다. 과거 리포트 목록도 확인할 수 있습니다.
+브라우저에서 접속 후 **리포트 생성** 버튼을 누르면 섹터별 리서치 → 종합 리포트 생성 과정이 실시간으로 표시되고, 완료된 리포트가 화면에 렌더링됩니다. 과거 리포트 목록도 확인할 수 있습니다. 로컬에서는 비밀번호 없이 바로 사용합니다.
 
-### CLI
+### 2) 클라우드 배포 (PC를 켜두지 않아도 어디서나 접속)
+
+[Render](https://render.com), Railway, Fly.io 등에 배포하면 아이폰·PC 어디서나 URL로 접속해 버튼 클릭으로 생성할 수 있습니다. 저장소에 `Dockerfile`과 `render.yaml`이 포함되어 있습니다.
+
+**Render 예시:**
+1. 이 저장소를 GitHub에 푸시
+2. render.com → **New + → Blueprint** → 저장소 선택 (`render.yaml` 자동 인식)
+3. 배포 후 **Environment** 탭에서 두 값 입력:
+   - `ANTHROPIC_API_KEY` — Claude API 키
+   - `APP_PASSWORD` — **공개 URL 접속용 비밀번호 (필수)**
+4. 발급된 URL에 접속 → 브라우저가 비밀번호를 물어봄 (아이디는 아무 값, 비밀번호는 `APP_PASSWORD` 값)
+
+> ⚠️ 공개 URL은 누구나 접속하면 **API 비용**이 발생합니다. 배포 시 `APP_PASSWORD`를 반드시 설정하세요. (로컬에서는 미설정 시 무인증으로 동작합니다.)
+
+Docker로 직접 띄우려면:
+
+```bash
+docker build -t sector-agent .
+docker run -p 8000:8000 -e ANTHROPIC_API_KEY=sk-ant-... -e APP_PASSWORD=내비밀번호 sector-agent
+```
+
+### 3) CLI
 
 ```bash
 python -m sector_news_agent                 # config.yaml 기준 실행
@@ -54,7 +78,7 @@ sectors:
 
 `model` 섹션에서 모델, effort(`low`/`medium`/`high`/`max`), 섹터당 최대 웹 검색 횟수(비용 제어)를 조정할 수 있습니다.
 
-## 매일 자동 실행 (GitHub Actions)
+### 4) 매일 자동 실행 (GitHub Actions)
 
 `.github/workflows/daily-report.yml`이 매일 한국시간 오전 7시 30분에 리포트를 생성해 `reports/`에 커밋합니다.
 

@@ -1,9 +1,12 @@
 """웹 UI: 브라우저에서 리포트 생성을 실행하고 진행 상황을 실시간으로 본다.
 
-실행:
+로컬 실행:
     export ANTHROPIC_API_KEY=sk-ant-...
     python -m sector_news_agent.web          # http://localhost:8000
-    # 또는: uvicorn sector_news_agent.web:app --host 0.0.0.0 --port 8000
+
+클라우드 배포 시(공개 URL): APP_PASSWORD 환경변수를 설정하면 접속에 비밀번호를
+요구합니다(아이디는 아무 값, 비밀번호는 APP_PASSWORD). 설정하지 않으면 누구나
+접속해 API 비용을 발생시킬 수 있으니 배포 시 반드시 설정하세요.
 """
 
 from __future__ import annotations
@@ -11,17 +14,34 @@ from __future__ import annotations
 import json
 import os
 import queue
+import secrets
 import threading
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from .agent import run
 from .config import load_config
 
 CONFIG_PATH = os.environ.get("SECTOR_AGENT_CONFIG", "config.yaml")
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 
 app = FastAPI(title="섹터 뉴스 리포트 에이전트")
+
+_basic = HTTPBasic(auto_error=False)
+
+
+def require_auth(credentials: HTTPBasicCredentials | None = Depends(_basic)) -> None:
+    """APP_PASSWORD가 설정된 경우에만 HTTP Basic 인증을 요구한다 (로컬은 무인증)."""
+    if not APP_PASSWORD:
+        return
+    if credentials is None or not secrets.compare_digest(credentials.password, APP_PASSWORD):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="비밀번호가 필요합니다.",
+            headers={"WWW-Authenticate": "Basic"},
+        )
 
 # 동시에 1개의 생성 작업만 허용하는 단순 작업 상태
 _lock = threading.Lock()
@@ -44,7 +64,7 @@ def _worker(q: queue.Queue) -> None:
 
 
 @app.post("/api/generate")
-def generate() -> dict:
+def generate(_: None = Depends(require_auth)) -> dict:
     if not os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("ANTHROPIC_AUTH_TOKEN"):
         raise HTTPException(500, "서버에 ANTHROPIC_API_KEY가 설정되어 있지 않습니다.")
     with _lock:
@@ -57,7 +77,7 @@ def generate() -> dict:
 
 
 @app.get("/api/progress")
-def progress_stream() -> StreamingResponse:
+def progress_stream(_: None = Depends(require_auth)) -> StreamingResponse:
     q = _state.get("queue")
     if q is None:
         raise HTTPException(404, "진행 중인 작업이 없습니다.")
@@ -77,13 +97,13 @@ def progress_stream() -> StreamingResponse:
 
 
 @app.get("/api/sectors")
-def sectors() -> list[dict]:
+def sectors(_: None = Depends(require_auth)) -> list[dict]:
     cfg = load_config(CONFIG_PATH)
     return [{"region": s.region_label, "name": s.name} for s in cfg.sectors]
 
 
 @app.get("/api/reports")
-def list_reports() -> list[str]:
+def list_reports(_: None = Depends(require_auth)) -> list[str]:
     cfg = load_config(CONFIG_PATH)
     if not cfg.output_dir.is_dir():
         return []
@@ -91,7 +111,7 @@ def list_reports() -> list[str]:
 
 
 @app.get("/api/reports/{name}")
-def get_report(name: str) -> PlainTextResponse:
+def get_report(name: str, _: None = Depends(require_auth)) -> PlainTextResponse:
     if "/" in name or "\\" in name or not name.endswith(".md"):
         raise HTTPException(400, "잘못된 파일명입니다.")
     cfg = load_config(CONFIG_PATH)
@@ -224,7 +244,7 @@ loadReports();
 
 
 @app.get("/", response_class=HTMLResponse)
-def index() -> str:
+def index(_: None = Depends(require_auth)) -> str:
     return INDEX_HTML
 
 
