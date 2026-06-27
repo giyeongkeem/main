@@ -7,7 +7,6 @@ import {
   CATEGORY_LABEL,
   DISTRICTS,
   ALL_SPECIALTIES,
-  listings,
   hasVerifiedCert,
 } from "@/lib/data";
 import type { Listing, ListingType } from "@/lib/types";
@@ -23,7 +22,7 @@ const SORTS = [
   { value: "experience", label: "경력 많은순" },
 ];
 
-export function ListingsClient() {
+export function ListingsClient({ listings }: { listings: Listing[] }) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -114,7 +113,7 @@ export function ListingsClient() {
         );
     }
     return sorted;
-  }, [query, types, districts, specialties, verifiedOnly, minRating, gender, sort]);
+  }, [listings, query, types, districts, specialties, verifiedOnly, minRating, gender, sort]);
 
   const activeCount =
     types.length +

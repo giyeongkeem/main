@@ -18,6 +18,7 @@ export function Gallery({
     <div>
       <FacilityImage
         tone={current.tone}
+        url={current.url}
         label={current.label}
         icon={icon}
         className="aspect-[16/10] w-full rounded-2xl"
@@ -35,6 +36,7 @@ export function Gallery({
             >
               <FacilityImage
                 tone={p.tone}
+                url={p.url}
                 icon={icon}
                 showLabel={false}
                 className="aspect-[4/3] w-full"

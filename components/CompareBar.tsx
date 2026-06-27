@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCompare } from "./CompareContext";
-import { getListing, categoryMeta } from "@/lib/data";
+import { categoryMeta } from "@/lib/data";
+import { useListingsByIds } from "./useListings";
 import { FacilityImage } from "./FacilityImage";
 import { ArrowRightIcon, XIcon } from "./Icons";
 
 export function CompareBar() {
   const { ids, remove, clear, max } = useCompare();
   const pathname = usePathname();
+  const { items } = useListingsByIds(ids);
 
   if (ids.length === 0 || pathname === "/compare") return null;
-
-  const items = ids.map((id) => getListing(id)).filter(Boolean);
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 animate-fade-up px-3 pb-3 sm:px-6 sm:pb-5">
@@ -34,6 +34,7 @@ export function CompareBar() {
                 >
                   <FacilityImage
                     tone={l.photos[0]?.tone ?? 0}
+                    url={l.photos[0]?.url}
                     icon={meta.icon}
                     showLabel={false}
                     className="h-9 w-9 rounded-lg"

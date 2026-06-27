@@ -2,13 +2,8 @@
 
 import Link from "next/link";
 import { useCompare } from "@/components/CompareContext";
-import {
-  categoryMeta,
-  CATEGORY_LABEL,
-  getListing,
-  verifiedCertCount,
-} from "@/lib/data";
-import type { Listing } from "@/lib/types";
+import { categoryMeta, CATEGORY_LABEL, verifiedCertCount } from "@/lib/data";
+import { useListingsByIds } from "@/components/useListings";
 import { FacilityImage } from "@/components/FacilityImage";
 import { RatingStars } from "@/components/RatingStars";
 import {
@@ -21,9 +16,9 @@ import {
 
 export default function ComparePage() {
   const { ids, remove, clear } = useCompare();
-  const items = ids.map((id) => getListing(id)).filter(Boolean) as Listing[];
+  const { items, loading } = useListingsByIds(ids);
 
-  if (items.length === 0) {
+  if (ids.length === 0) {
     return (
       <div className="container-page py-20">
         <div className="card mx-auto flex max-w-lg flex-col items-center px-6 py-16 text-center">
@@ -41,6 +36,10 @@ export default function ComparePage() {
         </div>
       </div>
     );
+  }
+
+  if (loading && items.length === 0) {
+    return <div className="container-page py-20 text-center text-ink-muted">불러오는 중…</div>;
   }
 
   return (
@@ -66,6 +65,7 @@ export default function ComparePage() {
                       <div className="relative">
                         <FacilityImage
                           tone={l.photos[0]?.tone ?? 0}
+                          url={l.photos[0]?.url}
                           icon={meta.icon}
                           showLabel={false}
                           className="h-24 w-full"

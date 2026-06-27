@@ -1,8 +1,8 @@
 import { CategoryIcon } from "./Icons";
 
 /**
- * 외부 네트워크 의존 없이 항상 렌더되는 자체 생성 시설 이미지(플레이스홀더).
- * 실제 서비스에서는 이 컴포넌트를 실제 업로드 사진으로 교체하면 됩니다.
+ * 시설 이미지. 업로드된 실제 사진(url)이 있으면 사진을 보여주고,
+ * 없으면 네트워크 의존 없는 자체 생성 플레이스홀더(그라데이션)를 렌더합니다.
  */
 
 const GRADIENTS: [string, string][] = [
@@ -24,16 +24,18 @@ export function FacilityImage({
   tone,
   label,
   icon,
+  url,
   className = "",
   showLabel = true,
 }: {
   tone: number;
   label?: string;
   icon: IconName;
+  url?: string;
   className?: string;
   showLabel?: boolean;
 }) {
-  const [from, to] = GRADIENTS[tone % GRADIENTS.length];
+  const [from, to] = GRADIENTS[((tone % GRADIENTS.length) + GRADIENTS.length) % GRADIENTS.length];
   return (
     <div
       className={`relative isolate overflow-hidden ${className}`}
@@ -41,23 +43,29 @@ export function FacilityImage({
       aria-label={label ? `${label} 이미지` : "시설 이미지"}
       role="img"
     >
-      {/* 장식용 도형 */}
-      <div className="pointer-events-none absolute -right-8 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-12 -left-6 h-44 w-44 rounded-full bg-black/10 blur-2xl" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.06]"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 1px, transparent 14px)",
-        }}
-      />
-      {/* 카테고리 글리프 워터마크 */}
-      <CategoryIcon
-        name={icon}
-        className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 text-white/25"
-        strokeWidth={1.1}
-      />
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt={label || "시설 사진"} className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <>
+          <div className="pointer-events-none absolute -right-8 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-6 h-44 w-44 rounded-full bg-black/10 blur-2xl" />
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.06]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 1px, transparent 14px)",
+            }}
+          />
+          <CategoryIcon
+            name={icon}
+            className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 text-white/25"
+            strokeWidth={1.1}
+          />
+        </>
+      )}
       {showLabel && label && (
-        <span className="absolute bottom-2.5 left-2.5 rounded-md bg-black/30 px-2 py-1 text-xs font-medium text-white/95 backdrop-blur-sm">
+        <span className="absolute bottom-2.5 left-2.5 rounded-md bg-black/40 px-2 py-1 text-xs font-medium text-white/95 backdrop-blur-sm">
           {label}
         </span>
       )}

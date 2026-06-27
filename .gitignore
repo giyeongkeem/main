@@ -27,3 +27,8 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# 로컬 데이터 저장소 & 업로드 (런타임 생성)
+/data
+/public/uploads/*
+!/public/uploads/.gitkeep

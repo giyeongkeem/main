@@ -1,11 +1,6 @@
 import Link from "next/link";
-import {
-  CATEGORIES,
-  DISTRICTS,
-  getByType,
-  getFeatured,
-  siteStats,
-} from "@/lib/data";
+import { CATEGORIES, DISTRICTS } from "@/lib/data";
+import { getAll, getFeatured, siteStats } from "@/lib/store";
 import { ListingCard } from "@/components/ListingCard";
 import { SearchBar } from "@/components/SearchBar";
 import {
@@ -20,9 +15,12 @@ import {
   StudioIcon,
 } from "@/components/Icons";
 
-export default function HomePage() {
-  const stats = siteStats();
-  const featured = getFeatured(8);
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const all = await getAll();
+  const stats = await siteStats();
+  const featured = await getFeatured(8);
 
   return (
     <>
@@ -78,7 +76,7 @@ export default function HomePage() {
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {CATEGORIES.map((c) => {
-            const count = getByType(c.type).length;
+            const count = all.filter((l) => l.type === c.type).length;
             return (
               <Link
                 key={c.type}

@@ -33,8 +33,10 @@ export interface Review {
 export interface Photo {
   /** 갤러리 캡션 (예: 웨이트 존, 리포머 룸) */
   label: string;
-  /** 이미지 분위기를 결정하는 시드 (자체 생성 이미지) */
+  /** 이미지 분위기를 결정하는 시드 (자체 생성 플레이스홀더 이미지) */
   tone: number;
+  /** 업로드된 실제 이미지 URL (있으면 플레이스홀더 대신 사용) */
+  url?: string;
 }
 
 export type PriceUnit = "session" | "month";

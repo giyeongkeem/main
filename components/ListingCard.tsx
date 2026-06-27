@@ -21,6 +21,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
         <div className="relative h-44 w-full">
           <FacilityImage
             tone={cover?.tone ?? 0}
+            url={cover?.url}
             icon={meta.icon}
             label={cover?.label}
             className="h-full w-full"

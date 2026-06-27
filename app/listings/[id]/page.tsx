@@ -1,13 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import {
-  categoryMeta,
-  CATEGORY_LABEL,
-  getListing,
-  getRelated,
-  listings,
-} from "@/lib/data";
+import { categoryMeta, CATEGORY_LABEL } from "@/lib/data";
+import { getById, getRelated } from "@/lib/store";
 import type { Review } from "@/lib/types";
 import { Gallery } from "@/components/Gallery";
 import { DetailSidebar } from "@/components/DetailSidebar";
@@ -21,9 +16,7 @@ import {
   MapPinIcon,
 } from "@/components/Icons";
 
-export function generateStaticParams() {
-  return listings.map((l) => ({ id: l.id }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -31,7 +24,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const listing = getListing(id);
+  const listing = await getById(id);
   if (!listing) return { title: "찾을 수 없음" };
   return {
     title: `${listing.name} — ${CATEGORY_LABEL[listing.type]}`,
@@ -45,11 +38,11 @@ export default async function DetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const listing = getListing(id);
+  const listing = await getById(id);
   if (!listing) notFound();
 
   const meta = categoryMeta(listing.type);
-  const related = getRelated(listing, 3);
+  const related = await getRelated(listing, 3);
   const dist = ratingDistribution(listing.reviews);
 
   return (
