@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CATEGORIES, DISTRICTS } from "@/lib/data";
-import { getAll, getFeatured, siteStats } from "@/lib/store";
+import { getPublished, getFeatured, siteStats } from "@/lib/store";
 import { ListingCard } from "@/components/ListingCard";
 import { SearchBar } from "@/components/SearchBar";
 import {
@@ -18,7 +18,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const all = await getAll();
+  const all = await getPublished();
   const stats = await siteStats();
   const featured = await getFeatured(8);
 
@@ -188,6 +188,12 @@ export default async function HomePage() {
               자격증 인증 전문가만 보기
             </Link>
           </div>
+          <p className="relative mt-6 text-sm text-brand-50">
+            전문가·센터를 운영하시나요?{" "}
+            <Link href="/register" className="font-bold text-white underline underline-offset-2">
+              내 센터 등록 신청하기 →
+            </Link>
+          </p>
         </div>
       </section>
     </>

@@ -15,6 +15,8 @@
 - **시설 사진 갤러리** — 운동 공간·기구·탈의실 등 방문 전 미리 확인
 - **이용 후기** — 별점 분포 + 항목별 태그가 있는 상세 후기
 - **비교함** — 최대 3곳을 가격·평점·경력·자격증·시설 기준으로 나란히 비교 (로컬 저장)
+- **후기 작성** — 방문자가 별점·후기를 남기면 평점이 자동 반영, 관리자 후기 삭제 가능
+- **업체 셀프 등록** — `/register`에서 신청 → 관리자 **승인/반려** 후 공개
 - **반응형 UI** — 데스크톱/모바일 모두 지원, 모바일 필터 드로어 제공
 
 ## 🗂 페이지 구성
@@ -63,9 +65,32 @@ ADMIN_PASSWORD="원하는비밀번호"
 ADMIN_SECRET="아무_긴_임의문자열"
 ```
 
-> 데이터는 현재 로컬 파일(`data/listings.json`)과 `public/uploads/`에 저장됩니다(로컬 개발용).
-> 데이터 접근은 `lib/store.ts` 한 곳에 모여 있어, 다음 단계에서 Supabase/PostgreSQL로 교체해도
-> 화면·관리자 코드는 그대로 동작합니다. (배포 환경에서는 파일 쓰기가 제한되므로 DB 연동이 필요합니다.)
+## 🗄 저장소 동작 방식 (자동 전환)
+
+데이터 접근은 `lib/store.ts` 한 곳에 모여 있고, **환경변수에 따라 백엔드가 자동 전환**됩니다.
+
+| 조건 | 백엔드 | 용도 |
+| --- | --- | --- |
+| `DATABASE_URL` 없음 | 로컬 JSON 파일(`data/listings.json`) | 로컬 개발 (설정 불필요) |
+| `DATABASE_URL` 설정됨 | PostgreSQL | 배포 / 영구 저장 |
+
+테이블·시드는 첫 실행 시 **자동 생성**됩니다. (관리자 콘솔 상단에 현재 저장소가 표시됩니다.)
+
+## 🌐 배포하기 (Supabase + Vercel)
+
+로컬 파일 저장은 배포 환경(서버리스)에서 쓰기가 제한되므로, 배포 시에는 Postgres(Supabase)를 연결합니다.
+
+1. **Supabase** — [supabase.com](https://supabase.com)에서 프로젝트 생성 →
+   *Project Settings → Database → Connection string (URI)* 복사
+2. **Vercel** — [vercel.com](https://vercel.com)에서 GitHub 저장소 `import` (Next.js 자동 인식)
+3. Vercel **Environment Variables**에 추가:
+   - `DATABASE_URL` = 위 Supabase 연결 문자열
+   - `ADMIN_PASSWORD` = 원하는 관리자 비밀번호
+   - `ADMIN_SECRET` = 임의의 긴 문자열
+4. **Deploy** → 첫 접속 시 테이블·시드가 자동 생성됩니다.
+
+> 이미지 업로드(`public/uploads`)도 서버리스에선 영구 저장이 안 되므로, 운영 시 Supabase Storage(또는 S3/R2)로
+> 교체하는 것이 다음 단계입니다.
 
 ## 📁 프로젝트 구조
 
@@ -76,13 +101,16 @@ app/
   listings/page.tsx       # 디렉터리 (필터)
   listings/[id]/page.tsx  # 상세
   compare/page.tsx        # 비교함
-  admin/                  # 관리자 콘솔 (로그인·대시보드·등록·수정)
-  api/                    # listings 조회 + 관리자 CRUD/업로드/로그인 API
-components/               # UI 컴포넌트 (카드·갤러리·필터·아이콘 등)
+  register/               # 업체·전문가 셀프 등록 신청
+  admin/                  # 관리자 콘솔 (로그인·대시보드·등록·수정·승인)
+  api/                    # listings·reviews·submit + 관리자 CRUD/업로드/로그인 API
+components/               # UI 컴포넌트 (카드·갤러리·필터·후기폼·아이콘 등)
   admin/                  # 관리자 폼·액션 컴포넌트
 lib/
   data.ts                 # 시드 데이터 + 상수/헬퍼
-  store.ts                # 데이터 접근 계층 (추후 DB로 교체)
+  store.ts                # 데이터 접근 계층 (백엔드 자동 선택)
+  db-json.ts              # 로컬 JSON 백엔드
+  db-postgres.ts          # PostgreSQL 백엔드
   admin-auth.ts           # 관리자 인증
   types.ts                # 타입 정의
 ```

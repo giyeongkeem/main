@@ -65,4 +65,8 @@ export interface Listing {
   description: string;
   reviews: Review[];
   featured?: boolean;
+  /** 공개 상태. pending = 업체 셀프 등록 후 관리자 승인 대기 */
+  status?: "published" | "pending";
+  /** 셀프 등록 시 연락처(관리자만 확인) */
+  submitterContact?: string;
 }

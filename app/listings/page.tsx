@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ListingsClient } from "@/components/ListingsClient";
-import { getAll } from "@/lib/store";
+import { getPublished } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ListingsPage() {
-  const listings = await getAll();
+  const listings = await getPublished();
   return (
     <Suspense
       fallback={<div className="container-page py-20 text-center text-ink-muted">불러오는 중…</div>}

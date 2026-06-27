@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { categoryMeta, CATEGORY_LABEL } from "@/lib/data";
 import { getById, getRelated } from "@/lib/store";
+import { isAdmin } from "@/lib/admin-auth";
 import type { Review } from "@/lib/types";
 import { Gallery } from "@/components/Gallery";
+import { ReviewForm } from "@/components/ReviewForm";
+import { DeleteReviewButton } from "@/components/admin/AdminActions";
 import { DetailSidebar } from "@/components/DetailSidebar";
 import { ListingCard } from "@/components/ListingCard";
 import { RatingStars } from "@/components/RatingStars";
@@ -39,8 +42,9 @@ export default async function DetailPage({
 }) {
   const { id } = await params;
   const listing = await getById(id);
-  if (!listing) notFound();
+  if (!listing || listing.status === "pending") notFound();
 
+  const admin = await isAdmin();
   const meta = categoryMeta(listing.type);
   const related = await getRelated(listing, 3);
   const dist = ratingDistribution(listing.reviews);
@@ -167,6 +171,13 @@ export default async function DetailPage({
               </div>
             </div>
 
+            <ReviewForm listingId={listing.id} />
+
+            {listing.reviews.length === 0 && (
+              <p className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-ink-muted">
+                아직 후기가 없습니다. 첫 후기를 남겨보세요!
+              </p>
+            )}
             <ul className="space-y-4">
               {listing.reviews.map((r) => (
                 <li key={r.id} className="card p-5">
@@ -190,6 +201,11 @@ export default async function DetailPage({
                           {t}
                         </span>
                       ))}
+                    </div>
+                  )}
+                  {admin && (
+                    <div className="mt-3 border-t border-slate-100 pt-2 text-right">
+                      <DeleteReviewButton listingId={listing.id} reviewId={r.id} />
                     </div>
                   )}
                 </li>

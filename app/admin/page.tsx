@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-auth";
-import { getAll } from "@/lib/store";
+import { getAll, STORAGE } from "@/lib/store";
 import { categoryMeta, CATEGORY_LABEL, verifiedCertCount } from "@/lib/data";
 import { FacilityImage } from "@/components/FacilityImage";
-import { DeleteButton, LogoutButton } from "@/components/admin/AdminActions";
-import { BadgeCheckIcon, DumbbellIcon, SparklesIcon } from "@/components/Icons";
+import { ApproveButton, DeleteButton, LogoutButton } from "@/components/admin/AdminActions";
+import { BadgeCheckIcon, ClockIcon, DumbbellIcon, SparklesIcon } from "@/components/Icons";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   if (!(await isAdmin())) redirect("/admin/login");
-  const listings = await getAll();
+  const all = await getAll();
+  const pending = all.filter((l) => (l.status ?? "published") === "pending");
+  const published = all.filter((l) => (l.status ?? "published") === "published");
 
   return (
     <div className="container-page py-8">
@@ -23,7 +25,12 @@ export default async function AdminDashboard() {
           </span>
           <div>
             <h1 className="text-xl font-extrabold tracking-tight text-ink">관리자 콘솔</h1>
-            <p className="text-xs text-ink-muted">전문가·센터 정보와 사진을 관리합니다.</p>
+            <p className="text-xs text-ink-muted">
+              전문가·센터 정보와 사진을 관리합니다 · 저장:{" "}
+              <span className="font-semibold text-ink-soft">
+                {STORAGE === "postgres" ? "PostgreSQL" : "로컬 JSON"}
+              </span>
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -35,13 +42,45 @@ export default async function AdminDashboard() {
 
       {/* 요약 */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Summary value={listings.length} label="전체 등록" />
-        <Summary value={listings.filter((l) => verifiedCertCount(l) > 0).length} label="자격증 인증" icon={<BadgeCheckIcon width={16} height={16} />} />
-        <Summary value={listings.filter((l) => l.featured).length} label="추천 노출" icon={<SparklesIcon width={16} height={16} />} />
-        <Summary value={listings.filter((l) => (l.photos?.some((p) => p.url))).length} label="사진 등록" />
+        <Summary value={published.length} label="공개 중" />
+        <Summary value={pending.length} label="승인 대기" icon={<ClockIcon width={16} height={16} />} highlight={pending.length > 0} />
+        <Summary value={all.filter((l) => verifiedCertCount(l) > 0).length} label="자격증 인증" icon={<BadgeCheckIcon width={16} height={16} />} />
+        <Summary value={all.filter((l) => l.featured).length} label="추천 노출" icon={<SparklesIcon width={16} height={16} />} />
       </div>
 
-      {/* 목록 */}
+      {/* 승인 대기 */}
+      {pending.length > 0 && (
+        <section className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+          <h2 className="flex items-center gap-2 text-base font-bold text-amber-800">
+            <ClockIcon width={18} height={18} /> 승인 대기 ({pending.length})
+          </h2>
+          <p className="mt-1 text-sm text-amber-700/80">업체 셀프 등록 신청입니다. 검수 후 승인하면 사이트에 공개됩니다.</p>
+          <ul className="mt-4 space-y-3">
+            {pending.map((l) => {
+              const meta = categoryMeta(l.type);
+              return (
+                <li key={l.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-white p-3">
+                  <FacilityImage tone={l.photos[0]?.tone ?? 0} url={l.photos[0]?.url} icon={meta.icon} showLabel={false} className="h-10 w-12 shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-ink">{l.name} <span className="text-xs font-normal text-ink-muted">· {CATEGORY_LABEL[l.type]}</span></p>
+                    <p className="truncate text-xs text-ink-muted">
+                      {l.district} {l.neighborhood}
+                      {l.submitterContact ? ` · 연락처: ${l.submitterContact}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ApproveButton id={l.id} name={l.name} />
+                    <Link href={`/admin/listings/${l.id}/edit`} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:border-brand-300 hover:text-brand-700">보완 수정</Link>
+                    <DeleteButton id={l.id} name={l.name} label="반려" confirmText={`‘${l.name}’ 신청을 반려(삭제)할까요?`} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {/* 공개 목록 */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
@@ -57,7 +96,7 @@ export default async function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {listings.map((l) => {
+              {published.map((l) => {
                 const meta = categoryMeta(l.type);
                 const verified = verifiedCertCount(l);
                 return (
@@ -98,11 +137,11 @@ export default async function AdminDashboard() {
   );
 }
 
-function Summary({ value, label, icon }: { value: number; label: string; icon?: React.ReactNode }) {
+function Summary({ value, label, icon, highlight }: { value: number; label: string; icon?: React.ReactNode; highlight?: boolean }) {
   return (
-    <div className="card px-4 py-3">
+    <div className={`card px-4 py-3 ${highlight ? "border-amber-300 bg-amber-50" : ""}`}>
       <div className="flex items-center gap-1.5 text-2xl font-extrabold text-ink">
-        {icon && <span className="text-brand-600">{icon}</span>}
+        {icon && <span className={highlight ? "text-amber-600" : "text-brand-600"}>{icon}</span>}
         {value}
       </div>
       <div className="mt-0.5 text-xs text-ink-muted">{label}</div>

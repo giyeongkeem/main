@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getAll } from "@/lib/store";
+import { getPublished } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const all = await getAll();
+  const all = await getPublished();
   const idsParam = new URL(req.url).searchParams.get("ids");
   if (idsParam) {
     const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean);

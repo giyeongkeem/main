@@ -38,6 +38,7 @@ export function Footer() {
             <li><Link href="/listings" className="hover:text-brand-700">전체 둘러보기</Link></li>
             <li><Link href="/compare" className="hover:text-brand-700">비교함</Link></li>
             <li><Link href="/listings?verified=1" className="hover:text-brand-700">자격증 인증 전문가</Link></li>
+            <li><Link href="/register" className="hover:text-brand-700">전문가·센터 등록 신청</Link></li>
             <li><Link href="/admin" className="hover:text-brand-700">관리자 콘솔</Link></li>
           </ul>
         </div>
