@@ -8,10 +8,24 @@ report:
   output_dir: reports
   timezone: Asia/Seoul
 
+# 백엔드 선택:
+#   claude — Claude API 사용. 품질 높고 웹검색 내장. API 크레딧 비용 발생.
+#   ollama — 로컬 LLM + 무료 뉴스(RSS). 비용 0, 본인 PC에서 ollama 실행 필요.
+backend:
+  type: claude            # claude | ollama
+  ollama:
+    model: qwen2.5:14b    # 로컬에 설치한 모델 (예: qwen2.5:7b, llama3.1:8b)
+    host: http://localhost:11434
+
+# 로컬(ollama) 백엔드용 무료 뉴스 수집 설정 (Google News RSS)
+news:
+  max_items_per_sector: 8
+  days: 7
+
 model:
   name: claude-opus-4-8
   effort: high
-  # 섹터당 웹 검색 최대 횟수 (비용 제어)
+  # 섹터당 웹 검색 최대 횟수 (claude 백엔드 비용 제어)
   max_web_searches_per_sector: 8
 
 sectors:

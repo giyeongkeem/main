@@ -1,9 +1,8 @@
-"""섹터별 이슈 수집(웹 검색) → 종합 투자 리포트 생성 파이프라인.
+"""섹터별 이슈 수집 → 종합 투자 리포트 생성 파이프라인.
 
-흐름:
-1. research_sector() — 섹터마다 Claude + 서버사이드 web_search/web_fetch 도구로
-   최근 주요 이슈를 수집·정리한 섹터 브리핑을 만든다.
-2. synthesize_report() — 섹터 브리핑들을 모아 투자 관점의 최종 리포트를 작성한다.
+백엔드에 따라 뉴스 수집 방식이 다르다:
+- Claude API: 모델이 서버사이드 web_search로 직접 뉴스를 수집한다.
+- 로컬 Ollama: news.py가 Google News RSS로 무료 수집한 기사를 모델에 넣는다.
 
 progress 콜백(kind, message)으로 진행 상황을 전달한다.
 kind: "status"(단계 전환) | "tool"(도구 실행) | "text"(생성 텍스트 델타)
@@ -17,18 +16,15 @@ from pathlib import Path
 from typing import Callable
 from zoneinfo import ZoneInfo
 
-import anthropic
-
+from .backends import make_backend
 from .config import Config, Sector
+from .news import fetch_sector_news, format_news
 
 ProgressFn = Callable[[str, str], None]
 
-# 서버사이드 도구가 반복 한도에 걸려 pause_turn으로 멈췄을 때 이어서 실행하는 최대 횟수
-MAX_CONTINUATIONS = 6
-
 RESEARCH_SYSTEM = """\
 당신은 한국 기관투자자 리서치팀의 섹터 애널리스트입니다.
-주어진 주식 섹터의 최근 주요 이슈를 웹 검색으로 수집하고, 투자 판단에 필요한 핵심만 정리합니다.
+주어진 주식 섹터의 최근 주요 이슈를 정리하고, 투자 판단에 필요한 핵심만 추립니다.
 
 원칙:
 - 최근 1주일 이내 뉴스를 우선하되, 진행 중인 구조적 이슈(규제, 수급, 기술 변화)도 포함합니다.
@@ -66,98 +62,48 @@ def _default_progress(kind: str, message: str) -> None:
         print(f"\n{message}", file=sys.stderr)
 
 
-def _stream_until_done(
-    client: anthropic.Anthropic,
-    *,
-    system: str,
-    messages: list[dict],
-    model: str,
-    effort: str,
-    tools: list[dict] | None = None,
-    progress: ProgressFn = _default_progress,
-) -> anthropic.types.Message:
-    """스트리밍으로 호출하고, 서버사이드 도구의 pause_turn이면 이어서 실행한다."""
-    messages = list(messages)
-    response = None
-    for _ in range(MAX_CONTINUATIONS):
-        kwargs: dict = dict(
-            model=model,
-            max_tokens=64000,
-            system=system,
-            thinking={"type": "adaptive"},
-            output_config={"effort": effort},
-            messages=messages,
-        )
-        if tools:
-            kwargs["tools"] = tools
-
-        with client.messages.stream(**kwargs) as stream:
-            for event in stream:
-                if event.type == "content_block_start" and event.content_block.type == "server_tool_use":
-                    progress("tool", f"[도구 실행: {event.content_block.name}]")
-                elif event.type == "content_block_delta" and event.delta.type == "text_delta":
-                    progress("text", event.delta.text)
-            response = stream.get_final_message()
-
-        if response.stop_reason == "refusal":
-            raise RuntimeError("요청이 안전상의 이유로 거부되었습니다 (stop_reason=refusal).")
-        if response.stop_reason == "pause_turn":
-            # 서버사이드 도구 반복 한도 도달 — assistant 턴을 붙여 재요청하면 이어서 실행됨
-            messages.append({"role": "assistant", "content": response.content})
-            continue
-        return response
-
-    raise RuntimeError(f"pause_turn이 {MAX_CONTINUATIONS}회 연속 발생해 중단했습니다.")
-
-
-def _text_of(response: anthropic.types.Message) -> str:
-    return "\n".join(block.text for block in response.content if block.type == "text").strip()
-
-
-def research_sector(
-    client: anthropic.Anthropic,
-    cfg: Config,
-    sector: Sector,
-    today: str,
-    progress: ProgressFn = _default_progress,
-) -> str:
-    """단일 섹터의 최근 이슈를 웹 검색으로 수집해 브리핑 텍스트를 반환한다."""
+def research_sector(backend, cfg: Config, sector: Sector, today: str, progress: ProgressFn) -> str:
+    """단일 섹터의 최근 이슈를 수집해 브리핑 텍스트를 반환한다."""
     keywords = ", ".join(sector.keywords) if sector.keywords else "(없음)"
+
+    if backend.fetches_own_news:
+        # Claude: 모델이 직접 웹 검색
+        news_block = (
+            "위 섹터의 최근 주요 이슈를 웹 검색으로 조사하세요."
+        )
+        web_search = True
+    else:
+        # 로컬: RSS로 수집한 뉴스를 컨텍스트로 제공
+        progress("tool", f"[뉴스 수집(RSS): {sector.name}]")
+        try:
+            items = fetch_sector_news(sector, cfg)
+        except Exception as e:  # 수집 실패해도 진행
+            progress("status", f"  (뉴스 수집 실패: {e})")
+            items = []
+        news_block = (
+            "아래는 수집된 최근 뉴스 헤드라인입니다. 이 자료에 근거해 작성하세요.\n\n"
+            + format_news(items)
+        )
+        web_search = False
+
     prompt = f"""\
 오늘 날짜: {today}
 대상 섹터: [{sector.region_label}] {sector.name}
 참고 키워드: {keywords}
 
-위 섹터의 최근 주요 이슈를 웹 검색으로 조사하고, 다음 형식의 브리핑을 작성하세요.
+{news_block}
+
+다음 형식의 브리핑을 작성하세요.
 
 ## [{sector.region_label}] {sector.name} 섹터 브리핑
 ### 주요 이슈 (중요도 순 3~6개)
 - 이슈별: 무슨 일이 있었는지 / 시장·주가 반응 / 투자 관점에서의 의미 / 출처
 ### 섹터 분위기 한 줄 요약
 """
-    tools = [
-        {"type": "web_search_20260209", "name": "web_search", "max_uses": cfg.max_web_searches_per_sector},
-        {"type": "web_fetch_20260209", "name": "web_fetch"},
-    ]
-    response = _stream_until_done(
-        client,
-        system=RESEARCH_SYSTEM,
-        messages=[{"role": "user", "content": prompt}],
-        model=cfg.model,
-        effort=cfg.effort,
-        tools=tools,
-        progress=progress,
-    )
-    return _text_of(response)
+    return backend.complete(RESEARCH_SYSTEM, prompt, progress, web_search=web_search)
 
 
-def synthesize_report(
-    client: anthropic.Anthropic,
-    cfg: Config,
-    briefings: list[str],
-    today: str,
-    progress: ProgressFn = _default_progress,
-) -> str:
+def synthesize_report(backend, cfg: Config, briefings: list[str], today: str, progress: ProgressFn) -> str:
     """섹터 브리핑들을 종합해 최종 투자 리포트(Markdown)를 반환한다."""
     joined = "\n\n---\n\n".join(briefings)
     prompt = f"""\
@@ -168,34 +114,25 @@ def synthesize_report(
 
 {joined}
 """
-    response = _stream_until_done(
-        client,
-        system=SYNTHESIS_SYSTEM,
-        messages=[{"role": "user", "content": prompt}],
-        model=cfg.model,
-        effort=cfg.effort,
-        progress=progress,
-    )
-    return _text_of(response)
+    return backend.complete(SYNTHESIS_SYSTEM, prompt, progress, web_search=False)
 
 
-def run(
-    cfg: Config,
-    output_path: Path | None = None,
-    progress: ProgressFn = _default_progress,
-) -> Path:
+def run(cfg: Config, output_path: Path | None = None, progress: ProgressFn = _default_progress) -> Path:
     """전체 파이프라인을 실행하고 리포트 파일 경로를 반환한다."""
-    client = anthropic.Anthropic()
+    backend = make_backend(cfg)
+    label = "Claude API" if cfg.backend == "claude" else f"로컬 Ollama ({cfg.ollama_model})"
+    progress("status", f"백엔드: {label}")
+
     now = datetime.now(ZoneInfo(cfg.timezone))
     today = now.strftime("%Y-%m-%d (%a)")
 
     briefings: list[str] = []
     for i, sector in enumerate(cfg.sectors, 1):
         progress("status", f"=== [{i}/{len(cfg.sectors)}] {sector.region_label} · {sector.name} 리서치 중 ===")
-        briefings.append(research_sector(client, cfg, sector, today, progress=progress))
+        briefings.append(research_sector(backend, cfg, sector, today, progress))
 
     progress("status", "=== 종합 리포트 작성 중 ===")
-    report = synthesize_report(client, cfg, briefings, today, progress=progress)
+    report = synthesize_report(backend, cfg, briefings, today, progress)
 
     if output_path is None:
         cfg.output_dir.mkdir(parents=True, exist_ok=True)

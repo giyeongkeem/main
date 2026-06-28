@@ -20,11 +20,14 @@ def main() -> int:
     parser.add_argument("--output", default=None, help="리포트 저장 경로 (기본: reports/YYYY-MM-DD_sector_report.md)")
     args = parser.parse_args()
 
-    if not os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("ANTHROPIC_AUTH_TOKEN"):
-        print("오류: ANTHROPIC_API_KEY 환경변수를 설정하세요.", file=sys.stderr)
-        return 1
-
     cfg = load_config(args.config)
+
+    if cfg.backend == "claude" and not (
+        os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
+    ):
+        print("오류: claude 백엔드는 ANTHROPIC_API_KEY 환경변수가 필요합니다.", file=sys.stderr)
+        print("  (무료 로컬 모드는 config.yaml에서 backend.type을 'ollama'로 설정하세요.)", file=sys.stderr)
+        return 1
     run(cfg, Path(args.output) if args.output else None)
     return 0
 

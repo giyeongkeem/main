@@ -9,9 +9,35 @@ Claude API의 서버사이드 웹 검색/페치 도구를 사용하므로 별도
 1. **섹터 리서치** — `config.yaml`에 정의한 섹터마다 Claude가 웹 검색(`web_search`)과 페이지 조회(`web_fetch`)로 최근 주요 이슈를 수집하고, 사실/시장 반응/투자 의미/출처를 정리한 브리핑을 작성합니다.
 2. **종합 리포트** — 섹터 브리핑들을 종합해 핵심 요약, 국내/해외 섹터 분석, 단기·중기 투자 관점, 리스크 요인, 출처가 담긴 리포트를 `reports/YYYY-MM-DD_sector_report.md`로 저장합니다.
 
-## 필요한 것
+## 두 가지 백엔드 (비용 선택)
 
-**Claude API 키 1개**(`ANTHROPIC_API_KEY`)만 있으면 됩니다. 웹 검색이 Claude의 서버사이드 도구로 동작하므로 별도의 뉴스 API 키는 필요 없습니다. 키는 [console.anthropic.com](https://console.anthropic.com)에서 발급합니다.
+`config.yaml`의 `backend.type`으로 LLM 백엔드를 고릅니다.
+
+| `backend.type` | 비용 | 품질 | 뉴스 수집 | 필요 조건 |
+|---|---|---|---|---|
+| `claude` (기본) | API 크레딧(유료) | 높음 | Claude 내장 웹검색 | `ANTHROPIC_API_KEY` |
+| `ollama` | **무료** | 중간 | Google News RSS(무료) | 로컬에 [Ollama](https://ollama.com) 설치·실행 |
+
+> ⚠️ **claude.ai 구독(Pro/Max)으로는 동작하지 않습니다.** 구독과 Claude API는 별개의 결제 체계로, `claude` 백엔드는 API 크레딧이 필요합니다. 비용 없이 쓰려면 `ollama` 백엔드를 사용하세요.
+
+### 무료 로컬 모드 (ollama) 설정
+
+```bash
+# 1) Ollama 설치 (https://ollama.com) 후 모델 받기
+ollama pull qwen2.5:14b        # 사양이 낮으면 qwen2.5:7b
+
+# 2) config.yaml에서 backend.type을 ollama로
+#    backend:
+#      type: ollama
+#      ollama:
+#        model: qwen2.5:14b
+
+# 3) 실행 (API 키 불필요)
+python -m sector_news_agent          # CLI
+python -m sector_news_agent.web      # 웹 UI
+```
+
+로컬 모델은 웹 검색 기능이 없어, 섹터 키워드로 **Google News RSS**(무료)에서 최근 기사를 모아 모델에 넣고 브리핑·리포트를 작성합니다. Ollama 서버(`ollama serve`)가 떠 있어야 합니다.
 
 ## 사용법
 

@@ -65,8 +65,11 @@ def _worker(q: queue.Queue) -> None:
 
 @app.post("/api/generate")
 def generate(_: None = Depends(require_auth)) -> dict:
-    if not os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("ANTHROPIC_AUTH_TOKEN"):
-        raise HTTPException(500, "서버에 ANTHROPIC_API_KEY가 설정되어 있지 않습니다.")
+    cfg = load_config(CONFIG_PATH)
+    if cfg.backend == "claude" and not (
+        os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
+    ):
+        raise HTTPException(500, "서버에 ANTHROPIC_API_KEY가 설정되어 있지 않습니다. (claude 백엔드)")
     with _lock:
         if _state["running"]:
             raise HTTPException(409, "이미 리포트를 생성 중입니다.")
