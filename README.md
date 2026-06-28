@@ -24,13 +24,13 @@ Claude API의 서버사이드 웹 검색/페치 도구를 사용하므로 별도
 
 ```bash
 # 1) Ollama 설치 (https://ollama.com) 후 모델 받기
-ollama pull qwen2.5:14b        # 사양이 낮으면 qwen2.5:7b
+ollama pull qwen2.5:72b        # 128GB RAM 권장. 16GB면 qwen2.5:7b
 
 # 2) config.yaml에서 backend.type을 ollama로
 #    backend:
 #      type: ollama
 #      ollama:
-#        model: qwen2.5:14b
+#        model: qwen2.5:72b
 
 # 3) 실행 (API 키 불필요)
 python -m sector_news_agent          # CLI

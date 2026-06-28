@@ -28,7 +28,7 @@ class Config:
     effort: str = "high"
     max_web_searches_per_sector: int = 8
     # ollama 백엔드 설정
-    ollama_model: str = "qwen2.5:14b"
+    ollama_model: str = "qwen2.5:72b"
     ollama_host: str = "http://localhost:11434"
     # 로컬 백엔드용 무료 뉴스 수집(Google News RSS)
     news_max_items: int = 8

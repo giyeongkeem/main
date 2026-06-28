@@ -14,7 +14,7 @@ report:
 backend:
   type: claude            # claude | ollama
   ollama:
-    model: qwen2.5:14b    # 로컬에 설치한 모델 (예: qwen2.5:7b, llama3.1:8b)
+    model: qwen2.5:72b    # 128GB RAM 권장. 사양 낮으면 qwen2.5:32b / 14b / 7b
     host: http://localhost:11434
 
 # 로컬(ollama) 백엔드용 무료 뉴스 수집 설정 (Google News RSS)
