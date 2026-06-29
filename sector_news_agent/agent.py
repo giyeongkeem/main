@@ -138,5 +138,15 @@ def run(cfg: Config, output_path: Path | None = None, progress: ProgressFn = _de
         cfg.output_dir.mkdir(parents=True, exist_ok=True)
         output_path = cfg.output_dir / f"{now.strftime('%Y-%m-%d')}_sector_report.md"
     output_path.write_text(report + "\n", encoding="utf-8")
-    progress("status", f"리포트 저장 완료: {output_path}")
+
+    # 시각화 HTML도 함께 저장 (markdown 미설치 시 조용히 건너뜀)
+    try:
+        from .html_report import to_html
+
+        html_path = output_path.with_suffix(".html")
+        html_path.write_text(to_html(report, title=f"데일리 섹터 리포트 — {today}"), encoding="utf-8")
+        progress("status", f"리포트 저장 완료: {output_path} (+ {html_path.name})")
+    except Exception as e:
+        progress("status", f"리포트 저장 완료: {output_path} (HTML 생성 생략: {e})")
+
     return output_path

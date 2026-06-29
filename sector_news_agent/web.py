@@ -124,6 +124,23 @@ def get_report(name: str, _: None = Depends(require_auth)) -> PlainTextResponse:
     return PlainTextResponse(path.read_text(encoding="utf-8"))
 
 
+@app.get("/api/reports-html/{name}", response_class=HTMLResponse)
+def get_report_html(name: str, _: None = Depends(require_auth)) -> str:
+    """동일 리포트의 시각화 HTML 버전 (없으면 즉석 변환)."""
+    if "/" in name or "\\" in name or not name.endswith(".md"):
+        raise HTTPException(400, "잘못된 파일명입니다.")
+    cfg = load_config(CONFIG_PATH)
+    md_path = cfg.output_dir / name
+    if not md_path.is_file():
+        raise HTTPException(404, "리포트가 없습니다.")
+    html_path = md_path.with_suffix(".html")
+    if html_path.is_file():
+        return html_path.read_text(encoding="utf-8")
+    from .html_report import to_html
+
+    return to_html(md_path.read_text(encoding="utf-8"))
+
+
 INDEX_HTML = """<!doctype html>
 <html lang="ko">
 <head>
@@ -189,7 +206,11 @@ async function loadReports() {
 async function showReport(name) {
   const md = await (await fetch('/api/reports/' + encodeURIComponent(name))).text();
   $('report').hidden = false;
-  $('report').innerHTML = marked.parse(md);
+  const htmlUrl = '/api/reports-html/' + encodeURIComponent(name);
+  $('report').innerHTML =
+    '<p style="text-align:right;margin:0 0 8px">' +
+    '<a href="' + htmlUrl + '" target="_blank" rel="noopener">🎨 시각화 HTML로 보기 ↗</a></p>' +
+    marked.parse(md);
   $('report').scrollIntoView({behavior: 'smooth'});
 }
 
