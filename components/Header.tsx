@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 import { useCompare } from "./CompareContext";
 import { DumbbellIcon, ScaleIcon, SearchIcon } from "./Icons";
 
-export function Header() {
+type SessionUser = { name?: string | null; image?: string | null; email?: string | null };
+
+export function Header({ user }: { user?: SessionUser | null }) {
   const router = useRouter();
   const { ids } = useCompare();
   const [q, setQ] = useState("");
@@ -57,6 +60,17 @@ export function Header() {
               </span>
             )}
           </Link>
+          {user ? (
+            <div className="flex items-center gap-1 pl-1">
+              <span className="flex items-center gap-2 rounded-full border border-slate-200 py-1 pl-1 pr-3">
+                <Avatar user={user} />
+                <span className="max-w-[88px] truncate text-sm font-medium text-ink">{user.name ?? "회원"}</span>
+              </span>
+              <button onClick={() => signOut({ callbackUrl: "/" })} className="btn-ghost px-2.5 py-2 text-sm">로그아웃</button>
+            </div>
+          ) : (
+            <Link href="/login" className="btn-primary px-4 py-2">로그인</Link>
+          )}
         </nav>
 
         {/* 모바일 비교함 + 메뉴 */}
@@ -91,8 +105,35 @@ export function Header() {
               className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-11 pr-4 text-sm outline-none focus:border-brand-400 focus:bg-white"
             />
           </form>
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+            {user ? (
+              <>
+                <span className="flex items-center gap-2">
+                  <Avatar user={user} />
+                  <span className="text-sm font-medium text-ink">{user.name ?? "회원"}</span>
+                </span>
+                <button onClick={() => signOut({ callbackUrl: "/" })} className="btn-ghost px-3 py-2 text-sm">로그아웃</button>
+              </>
+            ) : (
+              <Link href="/login" onClick={() => setMenuOpen(false)} className="btn-primary w-full">
+                로그인 / 회원가입
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </header>
+  );
+}
+
+function Avatar({ user }: { user: SessionUser }) {
+  if (user.image) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={user.image} alt="" className="h-7 w-7 rounded-full object-cover" />;
+  }
+  return (
+    <span className="grid h-7 w-7 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
+      {(user.name ?? "회").charAt(0)}
+    </span>
   );
 }

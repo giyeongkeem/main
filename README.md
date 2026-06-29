@@ -17,6 +17,8 @@
 - **비교함** — 최대 3곳을 가격·평점·경력·자격증·시설 기준으로 나란히 비교 (로컬 저장)
 - **후기 작성** — 방문자가 별점·후기를 남기면 평점이 자동 반영, 관리자 후기 삭제 가능
 - **업체 셀프 등록** — `/register`에서 신청 → 관리자 **승인/반려** 후 공개
+- **소셜 로그인** — 카카오·네이버·애플 로그인(Auth.js), 로그인 시 후기를 내 이름으로 작성
+- **이미지 저장** — 로컬(`public/uploads`) 또는 **Supabase Storage** 자동 전환
 - **반응형 UI** — 데스크톱/모바일 모두 지원, 모바일 필터 드로어 제공
 
 ## 🗂 페이지 구성
@@ -87,10 +89,31 @@ ADMIN_SECRET="아무_긴_임의문자열"
    - `DATABASE_URL` = 위 Supabase 연결 문자열
    - `ADMIN_PASSWORD` = 원하는 관리자 비밀번호
    - `ADMIN_SECRET` = 임의의 긴 문자열
-4. **Deploy** → 첫 접속 시 테이블·시드가 자동 생성됩니다.
+   - `AUTH_SECRET` = 임의의 긴 문자열 (`openssl rand -base64 32`)
+   - (이미지) `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — *Settings → API*
+   - (소셜 로그인) 아래 “소셜 로그인 설정”의 키들
+4. **Deploy** → 첫 접속 시 DB 테이블·시드, Storage 버킷이 자동 생성됩니다.
 
-> 이미지 업로드(`public/uploads`)도 서버리스에선 영구 저장이 안 되므로, 운영 시 Supabase Storage(또는 S3/R2)로
-> 교체하는 것이 다음 단계입니다.
+### 🖼 이미지 저장 (Supabase Storage)
+`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` 를 설정하면 업로드 이미지가 **Supabase Storage**(public 버킷 `uploads`)에
+저장됩니다. 버킷은 첫 업로드 시 자동 생성됩니다. 미설정 시 로컬 `public/uploads` 를 사용합니다.
+
+### 🔑 소셜 로그인 설정 (카카오 · 네이버 · 애플)
+환경변수가 있는 제공자만 로그인 버튼이 활성화됩니다. 공통으로 `AUTH_SECRET` 이 필요합니다.
+각 제공자 콘솔에 **Redirect/Callback URL** 을 등록하세요 (`https://<도메인>/api/auth/callback/<provider>`).
+
+| 제공자 | 콘솔 | 환경변수 | 콜백 URL |
+| --- | --- | --- | --- |
+| 카카오 | developers.kakao.com | `AUTH_KAKAO_ID`, `AUTH_KAKAO_SECRET` | `/api/auth/callback/kakao` |
+| 네이버 | developers.naver.com | `AUTH_NAVER_ID`, `AUTH_NAVER_SECRET` | `/api/auth/callback/naver` |
+| 애플 | developer.apple.com (유료) | `AUTH_APPLE_ID`, `AUTH_APPLE_SECRET` | `/api/auth/callback/apple` |
+
+애플은 `AUTH_APPLE_ID`=Services ID, `AUTH_APPLE_SECRET`=`.p8` 키로 만든 JWT입니다. 아래로 생성:
+
+```bash
+APPLE_TEAM_ID=XXXX APPLE_KEY_ID=YYYY APPLE_CLIENT_ID=com.your.serviceid \
+APPLE_P8_PATH=./AuthKey_YYYY.p8 node scripts/generate-apple-secret.mjs
+```
 
 ## 📁 프로젝트 구조
 
@@ -101,18 +124,22 @@ app/
   listings/page.tsx       # 디렉터리 (필터)
   listings/[id]/page.tsx  # 상세
   compare/page.tsx        # 비교함
+  login/                  # 소셜 로그인 (카카오·네이버·애플)
   register/               # 업체·전문가 셀프 등록 신청
   admin/                  # 관리자 콘솔 (로그인·대시보드·등록·수정·승인)
-  api/                    # listings·reviews·submit + 관리자 CRUD/업로드/로그인 API
-components/               # UI 컴포넌트 (카드·갤러리·필터·후기폼·아이콘 등)
+  api/                    # listings·reviews·submit + auth + 관리자 CRUD/업로드 API
+components/               # UI 컴포넌트 (카드·갤러리·필터·후기폼·소셜로그인 등)
   admin/                  # 관리자 폼·액션 컴포넌트
 lib/
   data.ts                 # 시드 데이터 + 상수/헬퍼
-  store.ts                # 데이터 접근 계층 (백엔드 자동 선택)
-  db-json.ts              # 로컬 JSON 백엔드
-  db-postgres.ts          # PostgreSQL 백엔드
+  store.ts                # 데이터 접근 계층 (JSON/Postgres 자동 선택)
+  db-json.ts / db-postgres.ts  # 저장 백엔드
+  storage.ts              # 이미지 저장 (로컬/Supabase Storage 자동 선택)
+  auth.ts                 # 소셜 로그인(Auth.js) 설정
   admin-auth.ts           # 관리자 인증
   types.ts                # 타입 정의
+scripts/
+  generate-apple-secret.mjs    # Apple 로그인용 client secret(JWT) 생성
 ```
 
 ## 🔧 실제 서비스로 확장하려면

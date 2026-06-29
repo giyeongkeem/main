@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { StarIcon } from "./Icons";
 
-export function ReviewForm({ listingId }: { listingId: string }) {
+export function ReviewForm({ listingId, defaultAuthor }: { listingId: string; defaultAuthor?: string }) {
   const router = useRouter();
-  const [author, setAuthor] = useState("");
+  const [author, setAuthor] = useState(defaultAuthor ?? "");
   const [rating, setRating] = useState(5);
   const [hover, setHover] = useState(0);
   const [text, setText] = useState("");
@@ -49,12 +49,18 @@ export function ReviewForm({ listingId }: { listingId: string }) {
     <form onSubmit={onSubmit} className="card mb-5 p-5">
       <h3 className="font-bold text-ink">후기 작성</h3>
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <input
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          placeholder="닉네임 (선택)"
-          className="w-40 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-400"
-        />
+        {defaultAuthor ? (
+          <span className="rounded-xl bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700">
+            {defaultAuthor}님
+          </span>
+        ) : (
+          <input
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            placeholder="닉네임 (선택)"
+            className="w-40 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-400"
+          />
+        )}
         <div className="flex items-center gap-1" onMouseLeave={() => setHover(0)}>
           {Array.from({ length: 5 }).map((_, i) => {
             const v = i + 1;

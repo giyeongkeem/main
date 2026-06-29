@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { isAdmin } from "@/lib/admin-auth";
+import { saveImage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +37,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "8MB 이하 이미지만 업로드할 수 있습니다." }, { status: 400 });
   }
 
-  const buf = Buffer.from(await file.arrayBuffer());
-  const name = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${EXT[file.type]}`;
-  const dir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(path.join(dir, name), buf);
-
-  return NextResponse.json({ url: `/uploads/${name}` });
+  try {
+    const buf = Buffer.from(await file.arrayBuffer());
+    const url = await saveImage(buf, EXT[file.type], file.type);
+    return NextResponse.json({ url });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "업로드에 실패했습니다." },
+      { status: 500 }
+    );
+  }
 }

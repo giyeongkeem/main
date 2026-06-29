@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { auth } from "@/lib/auth";
 import { CompareProvider } from "@/components/CompareContext";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -23,16 +24,17 @@ export const metadata: Metadata = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
   return (
     <html lang="ko">
       <body className="flex min-h-screen flex-col">
         <CompareProvider>
-          <Header />
+          <Header user={session?.user ?? null} />
           <main className="flex-1">{children}</main>
           <Footer />
           <CompareBar />

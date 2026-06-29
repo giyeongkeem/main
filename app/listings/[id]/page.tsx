@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { categoryMeta, CATEGORY_LABEL } from "@/lib/data";
 import { getById, getRelated } from "@/lib/store";
 import { isAdmin } from "@/lib/admin-auth";
+import { auth } from "@/lib/auth";
 import type { Review } from "@/lib/types";
 import { Gallery } from "@/components/Gallery";
 import { ReviewForm } from "@/components/ReviewForm";
@@ -45,6 +46,7 @@ export default async function DetailPage({
   if (!listing || listing.status === "pending") notFound();
 
   const admin = await isAdmin();
+  const session = await auth();
   const meta = categoryMeta(listing.type);
   const related = await getRelated(listing, 3);
   const dist = ratingDistribution(listing.reviews);
@@ -171,7 +173,7 @@ export default async function DetailPage({
               </div>
             </div>
 
-            <ReviewForm listingId={listing.id} />
+            <ReviewForm listingId={listing.id} defaultAuthor={session?.user?.name ?? undefined} />
 
             {listing.reviews.length === 0 && (
               <p className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-ink-muted">
