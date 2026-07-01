@@ -3,14 +3,17 @@
 import { useState } from "react";
 import { useProject } from "@/store/useProject";
 import { PALETTES, SIZES, TEMPLATES } from "@/lib/presets";
+import { fileToDataUrl } from "@/lib/imageClient";
 import CardPreview from "@/components/CardPreview";
-import type { CardKind } from "@/lib/types";
+import type { CardKind, ImageMode } from "@/lib/types";
 
 const KINDS: CardKind[] = ["cover", "content", "closing"];
 
 export default function Step4Design() {
   const { article, design, meta, setDesign, updateCard, addCard, removeCard, moveCard, setStep } = useProject();
   const [sel, setSel] = useState(0);
+  const [imgUrl, setImgUrl] = useState("");
+  const [imgErr, setImgErr] = useState("");
 
   if (!article) {
     return (
@@ -23,6 +26,27 @@ export default function Step4Design() {
   const cards = article.cards;
   const current = cards[Math.min(sel, cards.length - 1)];
   const idx = Math.min(sel, cards.length - 1);
+  const defaultMode = (): ImageMode => (current.kind === "cover" ? "background" : "top");
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImgErr("");
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      updateCard(current.id, { image: dataUrl, imageMode: current.imageMode || defaultMode() });
+    } catch (err) {
+      setImgErr((err as Error).message);
+    }
+  }
+
+  function applyUrl() {
+    const u = imgUrl.trim();
+    if (!u) return;
+    updateCard(current.id, { image: u, imageMode: current.imageMode || defaultMode() });
+    setImgUrl("");
+  }
 
   return (
     <div className="space-y-4">
@@ -151,6 +175,21 @@ export default function Step4Design() {
                 </option>
               ))}
             </select>
+            <div className="flex overflow-hidden rounded-md border border-edge text-xs">
+              {(["left", "center"] as const).map((a) => {
+                const activeAlign = (current.align || (current.kind === "cover" ? "center" : "left")) === a;
+                return (
+                  <button
+                    key={a}
+                    onClick={() => updateCard(current.id, { align: a })}
+                    className={`px-2.5 py-1 ${activeAlign ? "bg-blue-500 text-white" : "text-gray-300"}`}
+                    title={a === "left" ? "왼쪽 정렬" : "가운데 정렬"}
+                  >
+                    {a === "left" ? "좌" : "중"}
+                  </button>
+                );
+              })}
+            </div>
             <div className="ml-auto flex gap-1.5">
               <button className="btn-ghost btn-sm" onClick={() => moveCard(current.id, -1)} disabled={idx === 0}>
                 ↑
@@ -194,6 +233,74 @@ export default function Step4Design() {
               onChange={(e) => updateCard(current.id, { body: e.target.value })}
             />
             <p className="mt-1 text-xs text-gray-500">빈 줄(엔터 2번)로 문단을 나눌 수 있어요.</p>
+          </div>
+
+          {/* ── image ─────────────────────────────────────────── */}
+          <div className="border-t border-edge pt-3">
+            <label className="label">이미지</label>
+            {current.image ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={current.image} alt="" className="h-16 w-16 rounded-md object-cover" />
+                  <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                    {(["background", "top"] as ImageMode[]).map((m) => {
+                      const activeMode = (current.imageMode || defaultMode()) === m;
+                      return (
+                        <button
+                          key={m}
+                          onClick={() => updateCard(current.id, { imageMode: m })}
+                          className={`btn-sm rounded-md border px-2 py-1 ${
+                            activeMode ? "border-blue-500 bg-blue-500/15 text-white" : "border-edge text-gray-300"
+                          }`}
+                        >
+                          {m === "background" ? "배경" : "상단"}
+                        </button>
+                      );
+                    })}
+                    <label className="btn-ghost btn-sm cursor-pointer">
+                      교체
+                      <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+                    </label>
+                    <button className="btn-ghost btn-sm text-red-400" onClick={() => updateCard(current.id, { image: undefined })}>
+                      제거
+                    </button>
+                  </div>
+                </div>
+                {(current.imageMode || defaultMode()) === "background" && (
+                  <label className="block text-xs text-gray-400">
+                    배경 어둡기 {Math.round((current.imageOverlay ?? 0.5) * 100)}%
+                    <input
+                      type="range"
+                      min={0}
+                      max={0.9}
+                      step={0.05}
+                      value={current.imageOverlay ?? 0.5}
+                      onChange={(e) => updateCard(current.id, { imageOverlay: Number(e.target.value) })}
+                      className="w-full accent-blue-500"
+                    />
+                  </label>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="btn-ghost btn-sm cursor-pointer">
+                  📁 파일 업로드
+                  <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+                </label>
+                <input
+                  className="field flex-1"
+                  placeholder="또는 이미지 URL 붙여넣기"
+                  value={imgUrl}
+                  onChange={(e) => setImgUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && applyUrl()}
+                />
+                <button className="btn-ghost btn-sm" onClick={applyUrl}>
+                  적용
+                </button>
+              </div>
+            )}
+            {imgErr && <p className="mt-1 text-xs text-red-400">⚠️ {imgErr}</p>}
           </div>
         </div>
       </div>

@@ -1,11 +1,10 @@
-import type { Card, Design, Meta } from "./types";
+import type { Card, Design, ImageMode, Meta } from "./types";
 
 const FONT_LINKS = `
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap">
 `;
+
+const SANS = `'Pretendard', system-ui, -apple-system, sans-serif`;
 
 function esc(s = ""): string {
   return s
@@ -30,8 +29,10 @@ function hexToRgba(hex: string, a: number): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
 
-const SANS = `'Pretendard', system-ui, -apple-system, sans-serif`;
-const SERIF = `'Nanum Myeongjo', 'Pretendard', serif`;
+/** safe to drop inside url("…") in CSS */
+function cssUrl(u = ""): string {
+  return u.replace(/"/g, "%22").replace(/\n/g, "");
+}
 
 export interface RenderArgs {
   card: Card;
@@ -46,7 +47,15 @@ export function renderCardHTML({ card, design, meta, index, total }: RenderArgs)
   const { palette: p, template, headingScale: hs, size } = design;
   const isCover = card.kind === "cover";
   const isClosing = card.kind === "closing";
-  const headingFont = template === "editorial" ? SERIF : SANS;
+
+  // ── image (all in Pretendard now; templates differ by weight/spacing) ──
+  const hasImg = !!card.image;
+  const mode: ImageMode = card.imageMode || (isCover ? "background" : "top");
+  const overlay = typeof card.imageOverlay === "number" ? card.imageOverlay : 0.5;
+  const bgPhoto = hasImg && mode === "background";
+  const topPhoto = hasImg && mode === "top";
+  const imgUrl = hasImg ? cssUrl(card.image) : "";
+  const topH = Math.round(size.h * (isCover ? 0.3 : 0.36));
 
   // background
   let bg = p.bg;
@@ -54,11 +63,25 @@ export function renderCardHTML({ card, design, meta, index, total }: RenderArgs)
     bg = `linear-gradient(155deg, ${p.bg} 0%, ${hexToRgba(p.accent, 0.28)} 70%, ${p.bg} 130%)`;
   }
 
+  // template-driven heading treatment (no serif — Pretendard only)
+  const headingWeight = template === "editorial" ? 700 : 800;
+  const headingLh = template === "editorial" ? 1.28 : 1.14;
+  const headingTracking = template === "editorial" ? "0em" : "-0.01em";
+
   const coverSize = Math.round((template === "bold" ? 108 : 92) * hs);
   const titleSize = Math.round((template === "bold" ? 78 : 64) * hs);
   const bodySize = Math.round(40 * Math.min(hs, 1.15));
 
-  // eyebrow rendering differs: bold uses an accent chip; others use a small label
+  // over a photo background, use full-strength text for legibility
+  const bodyColor = bgPhoto ? p.fg : isCover ? p.fg : p.muted;
+  const subColor = bgPhoto ? p.fg : p.muted;
+
+  const textAlign = card.align || (isCover ? "center" : "left");
+  const alignItems = textAlign === "center" ? "center" : "flex-start";
+  const justify = isCover ? "flex-end" : isClosing ? "center" : "center";
+  const padBottom = isCover ? 176 : 110;
+
+  // eyebrow rendering: bold/gradient use an accent chip; others a small rule label
   const eyebrowHtml = card.eyebrow
     ? template === "bold" || template === "gradient"
       ? `<span class="eyebrow chip">${esc(card.eyebrow)}</span>`
@@ -75,12 +98,6 @@ export function renderCardHTML({ card, design, meta, index, total }: RenderArgs)
   const footer = footerBits.length ? `<footer class="foot">${footerBits.join("")}</footer>` : "";
 
   const swipe = isCover && total > 1 ? `<div class="swipe">밀어서 보기 →</div>` : "";
-
-  // cover content is bottom-aligned — reserve clearance so it never collides
-  // with the footer (handle / page number) sitting at the very bottom.
-  const padBottom = isCover ? 176 : 110;
-  const align = isCover ? "center" : "flex-start";
-  const justify = isCover ? "flex-end" : isClosing ? "center" : "center";
 
   return `<!doctype html>
 <html lang="ko">
@@ -102,14 +119,35 @@ ${FONT_LINKS}
     display: flex;
     flex-direction: column;
     justify-content: ${justify};
-    align-items: ${align};
-    text-align: ${isCover ? "center" : "left"};
+    align-items: ${alignItems};
+    text-align: ${textAlign};
     padding: 110px 96px ${padBottom}px;
     word-break: keep-all;
     overflow-wrap: anywhere;
     -webkit-font-smoothing: antialiased;
   }
-  .stack { display: flex; flex-direction: column; align-items: ${align}; gap: 40px; max-width: 100%; ${isCover ? "" : "flex: 1; justify-content: center;"} }
+  .bg-photo {
+    position: absolute; inset: 0; z-index: 0;
+    background: url("${imgUrl}") center / cover no-repeat;
+  }
+  .bg-scrim {
+    position: absolute; inset: 0; z-index: 0;
+    background: linear-gradient(180deg,
+      ${hexToRgba(p.bg, overlay * 0.55)} 0%,
+      ${hexToRgba(p.bg, overlay * 0.82)} 45%,
+      ${hexToRgba(p.bg, Math.min(overlay + 0.22, 0.94))} 100%);
+  }
+  .stack {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column; align-items: ${alignItems};
+    gap: 40px; max-width: 100%; width: 100%;
+    ${isCover ? "" : "flex: 1; justify-content: center;"}
+  }
+  .top-photo {
+    width: 100%; height: ${topH}px; border-radius: 28px;
+    background: url("${imgUrl}") center / cover no-repeat;
+    box-shadow: 0 20px 60px ${hexToRgba("#000000", 0.35)};
+  }
   .eyebrow { font-size: 30px; font-weight: 700; letter-spacing: 0.04em; }
   .chip {
     display: inline-block;
@@ -125,36 +163,37 @@ ${FONT_LINKS}
     display: inline-block;
   }
   .title {
-    font-family: ${headingFont};
     font-size: ${isCover ? coverSize : titleSize}px;
-    font-weight: 800;
-    line-height: ${template === "editorial" ? 1.22 : 1.14};
-    letter-spacing: -0.01em;
+    font-weight: ${headingWeight};
+    line-height: ${headingLh};
+    letter-spacing: ${headingTracking};
+    ${isCover ? "max-width: 16ch;" : ""}
   }
-  ${isCover ? `.title { max-width: 14ch; }` : ""}
   .body { display: flex; flex-direction: column; gap: 22px; }
-  .body p { font-size: ${bodySize}px; line-height: 1.6; color: ${isCover ? p.fg : p.muted}; }
-  .cover-sub { font-size: ${Math.round(44 * hs)}px; color: ${p.muted}; line-height: 1.5; max-width: 20ch; }
+  .body p { font-size: ${bodySize}px; line-height: 1.6; color: ${bodyColor}; }
+  .cover-sub { font-size: ${Math.round(44 * hs)}px; color: ${subColor}; line-height: 1.5; max-width: 22ch; }
   .foot {
-    position: absolute;
+    position: absolute; z-index: 2;
     left: 96px; right: 96px; bottom: 70px;
     display: flex; justify-content: space-between; align-items: center;
-    font-size: 28px; color: ${p.muted}; font-weight: 600;
+    font-size: 28px; color: ${bgPhoto ? p.fg : p.muted}; font-weight: 600;
   }
-  .handle { color: ${p.accent}; }
+  .handle { color: ${bgPhoto ? p.fg : p.accent}; }
   .page { font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
   .swipe {
     margin-top: 16px;
-    font-size: 28px; color: ${p.muted}; font-weight: 600; letter-spacing: 0.05em;
+    font-size: 28px; color: ${subColor}; font-weight: 600; letter-spacing: 0.05em;
   }
   .accent-bar { width: 88px; height: 10px; border-radius: 999px; background: ${p.accent}; }
 </style>
 </head>
 <body>
   <div class="canvas" data-card>
+    ${bgPhoto ? `<div class="bg-photo"></div><div class="bg-scrim"></div>` : ""}
     <div class="stack">
+      ${topPhoto ? `<div class="top-photo"></div>` : ""}
       ${eyebrowHtml}
-      ${!isCover && template !== "bold" ? `<div class="accent-bar"></div>` : ""}
+      ${!isCover && template !== "bold" && !topPhoto ? `<div class="accent-bar"></div>` : ""}
       ${titleHtml}
       ${isCover && card.body ? `<p class="cover-sub">${esc(card.body)}</p>` : isCover ? "" : bodyHtml}
       ${swipe}

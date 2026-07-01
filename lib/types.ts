@@ -31,6 +31,9 @@ export interface NewsItem {
 
 export type CardKind = "cover" | "content" | "closing";
 
+/** how a card's image is placed */
+export type ImageMode = "background" | "top";
+
 export interface Card {
   id: string;
   kind: CardKind;
@@ -38,6 +41,14 @@ export interface Card {
   eyebrow?: string;
   title?: string;
   body?: string;
+  /** optional image — data URL (uploaded) or http(s) URL */
+  image?: string;
+  /** placement of the image; defaults per kind when an image is set */
+  imageMode?: ImageMode;
+  /** scrim strength over background images (0–0.9), for text legibility */
+  imageOverlay?: number;
+  /** horizontal text alignment override (defaults: cover=center, others=left) */
+  align?: "left" | "center";
 }
 
 export interface Article {

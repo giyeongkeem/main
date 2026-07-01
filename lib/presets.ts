@@ -18,7 +18,7 @@ export const PALETTES: Palette[] = [
 ];
 
 export const TEMPLATES: { id: TemplateId; name: string; hint: string }[] = [
-  { id: "editorial", name: "에디토리얼", hint: "명조 헤드라인 · 차분하고 신뢰감" },
+  { id: "editorial", name: "에디토리얼", hint: "가는 헤드라인 · 넓은 행간 · 차분하고 신뢰감" },
   { id: "bold", name: "볼드", hint: "큰 고딕 · 강한 대비 · 임팩트" },
   { id: "minimal", name: "미니멀", hint: "여백 중심 · 깔끔" },
   { id: "gradient", name: "그라디언트", hint: "부드러운 배경 그라데이션" },
