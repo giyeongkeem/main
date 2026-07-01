@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>데일리 섹터 리포트 — 2026-06-28</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#161c24; --panel2:#1c2530; --line:#27313d;
+    --ink:#e8eef5; --muted:#9aa7b5; --dim:#6b7886;
+    --kr:#4d9fff; --kr-bg:rgba(77,159,255,.10);
+    --ov:#ffb347; --ov-bg:rgba(255,179,71,.10);
+    --up:#3ddc84; --down:#ff6b6b; --accent:#7c9cff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:linear-gradient(180deg,#0c1116,#0f1419 240px);
+    color:var(--ink); font-family:-apple-system,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px; margin:0 auto; padding:40px 22px 80px}
+
+  header{border-bottom:1px solid var(--line); padding-bottom:24px; margin-bottom:32px}
+  .eyebrow{color:var(--accent); font-weight:700; letter-spacing:.18em; font-size:12px; text-transform:uppercase}
+  h1{font-size:30px; margin:10px 0 6px; letter-spacing:-.02em}
+  .date{color:var(--muted); font-size:15px}
+  .disclaimer{margin-top:14px; font-size:12px; color:var(--dim); background:var(--panel); border:1px solid var(--line);
+    border-radius:8px; padding:8px 12px; display:inline-block}
+
+  section{margin:34px 0}
+  h2{font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+    border-left:3px solid var(--accent); padding-left:10px; margin:0 0 16px}
+
+  /* 핵심 요약 카드 */
+  .summary{display:grid; gap:10px}
+  .bullet{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px;
+    display:flex; gap:12px; align-items:flex-start}
+  .bullet .dot{flex:0 0 auto; width:8px; height:8px; border-radius:50%; background:var(--accent); margin-top:9px}
+  .bullet b{color:#fff}
+
+  /* 섹터 카드 */
+  .sector{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:14px}
+  .sector h3{margin:0 0 4px; font-size:18px; display:flex; align-items:center; gap:10px}
+  .tag{font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px}
+  .tag.kr{color:var(--kr); background:var(--kr-bg); border:1px solid rgba(77,159,255,.3)}
+  .tag.ov{color:var(--ov); background:var(--ov-bg); border:1px solid rgba(255,179,71,.3)}
+  .sector ul{margin:10px 0 0; padding-left:18px}
+  .sector li{margin:6px 0}
+  .sector li b{color:#fff}
+  .note{margin-top:10px; font-size:13px; color:var(--muted); font-style:italic;
+    border-top:1px dashed var(--line); padding-top:8px}
+
+  /* 표 */
+  table{width:100%; border-collapse:collapse; font-size:14px; background:var(--panel);
+    border:1px solid var(--line); border-radius:12px; overflow:hidden}
+  th,td{padding:11px 14px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
+  th{background:var(--panel2); color:var(--muted); font-size:12px; letter-spacing:.04em; font-weight:700}
+  tr:last-child td{border-bottom:0}
+  td:first-child{font-weight:700; color:#fff; white-space:nowrap}
+
+  .risks li{margin:8px 0}
+  .risks b{color:var(--down)}
+
+  .link-line{display:flex; flex-wrap:wrap; gap:8px}
+  .src{font-size:12.5px; color:var(--muted); text-decoration:none; background:var(--panel);
+    border:1px solid var(--line); border-radius:7px; padding:6px 10px; transition:.15s}
+  .src:hover{color:var(--accent); border-color:var(--accent)}
+
+  .up{color:var(--up); font-weight:700}
+  .down{color:var(--down); font-weight:700}
+
+  footer{margin-top:48px; padding-top:20px; border-top:1px solid var(--line);
+    color:var(--dim); font-size:12px; text-align:center}
+  @media print{ body{background:#fff; color:#111} .sector,.bullet,table,.disclaimer{background:#fff} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Daily Sector Report</div>
+    <h1>데일리 섹터 리포트</h1>
+    <div class="date">2026년 6월 28일 (토) · 국내·해외 5개 섹터</div>
+    <div class="disclaimer">⚠️ 정보 제공 목적이며 투자 권유가 아닙니다.</div>
+  </header>
+
+  <section>
+    <h2>오늘의 핵심 요약</h2>
+    <div class="summary">
+      <div class="bullet"><span class="dot"></span><div><b>빅테크 AI capex 가속이 반도체 전체를 견인.</b> 아마존 약 2,000억 달러, 알파벳 1,750~1,850억 달러 → 빅4 합계 6,350~6,650억 달러(<span class="up">+67~74% YoY</span>). 발표 직후 엔비디아·브로드컴 <span class="up">+5%</span>, AMD <span class="up">+6%</span>.</div></div>
+      <div class="bullet"><span class="dot"></span><div><b>메모리 업황 개선 속도가 예상보다 빠름.</b> 삼성전자 2분기 영업이익 컨센 약 85.6조원(<span class="up">+1,729%</span>), SK하이닉스 약 63.1조원(<span class="up">+585%</span>). D램·낸드 가격 상승 + HBM 수요 동반.</div></div>
+      <div class="bullet"><span class="dot"></span><div><b>HBM 점유율 구도 변화 시작.</b> SK하이닉스 62%로 1위 유지하나, 삼성전자가 엔비디아·AMD HBM4 품질 테스트 통과 → 6월부터 본격 공급. 점유율 반등 분기점.</div></div>
+      <div class="bullet"><span class="dot"></span><div><b>2차전지는 ESS가 주연으로.</b> LG엔솔 ESS 매출 <span class="up">+40% YoY</span>, 북미 데이터센터·전력망 수요가 동력. 에코프로비엠 삼성SDI향 NCA 양극재 공급 확대.</div></div>
+      <div class="bullet"><span class="dot"></span><div><b>바이오 기술수출 모멘텀.</b> 바이오USA 2026에서 셀트리온 미팅 180건+(역대 최대), 삼성바이오 사전 미팅 90건. 올해 국내 기술수출 공개분 약 13조원.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>국내 섹터</h2>
+
+    <div class="sector">
+      <h3><span class="tag kr">국내</span> 반도체 — 실적 컨센서스 상향 랠리</h3>
+      <ul>
+        <li><b>삼성전자</b>: 2분기 매출 컨센 약 169.4조원, 영업이익 약 85.6조원(<span class="up">+1,729% YoY</span>). 엔비디아·AMD HBM4 최종 품질 테스트 통과, 6월부터 본격 공급 — 점유율 17%(2분기)에서 반등 기대.</li>
+        <li><b>SK하이닉스</b>: 2분기 매출 컨센 약 82.5조원, 영업이익 약 63.1조원(<span class="up">+585%</span>). HBM 점유율 62%로 선두. 2028년까지 HBM 공급 부족 전망이 강세 논리.</li>
+        <li><b>업황</b>: D램·낸드 가격 상승세 + 빅테크 AI 투자 증가가 맞물려 메모리 개선 가속.</li>
+      </ul>
+    </div>
+
+    <div class="sector">
+      <h3><span class="tag kr">국내</span> 2차전지 — EV 둔화를 ESS가 상쇄</h3>
+      <ul>
+        <li><b>LG에너지솔루션</b>: ESS 중심 체질 전환, ESS 매출 <span class="up">+40% YoY</span>. 북미 데이터센터·전력망 투자가 핵심 동력.</li>
+        <li><b>에코프로(비엠)</b>: 삼성SDI 국책사업에 NCA 양극재 약 3,000톤 공급 예정, 스타플러스에너지 관련 연 약 8,000톤 출하 추정.</li>
+        <li><b>테마</b>: 미국 ESS 시장 확대 + 탈중국 공급망 + 리튬 가격 상승 + AI 전력수요.</li>
+      </ul>
+    </div>
+
+    <div class="sector">
+      <h3><span class="tag kr">국내</span> 바이오/제약 — 바이오USA 후속 기대</h3>
+      <ul>
+        <li><b>셀트리온</b>: 바이오USA 미팅 180건+, 부스 방문 2,000명+ 역대 최대. ADC·다중항체 신약 기술 부각.</li>
+        <li><b>삼성바이오로직스</b>: 사전 미팅 90건, 제3바이오캠퍼스에서 GLP-1 비만치료제 생산 수요 검토.</li>
+      </ul>
+      <div class="note">올해 국내 기술수출 공개 7건 총 약 86.7억 달러(약 13조원). 행사 기대감 대비 주가는 부진 — 기술수출 성사가 반전 카드.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>해외 섹터</h2>
+
+    <div class="sector">
+      <h3><span class="tag ov">해외</span> AI / 빅테크 — 사상 최대 인프라 투자</h3>
+      <ul>
+        <li><b>capex 규모</b>: 아마존 ~2,000억 달러, 알파벳 1,750~1,850억 달러, MS FY26 연 환산 약 1,450억 달러(AI 용량 80%↑). 빅4 합계 6,350~6,650억 달러(<span class="up">+67~74% YoY</span>).</li>
+        <li><b>대형 프로젝트</b>: MS Fairwater(위스콘신, 70억 달러+, 엔비디아 GB200 수십만 장), 포르투갈 Sines 100억 달러.</li>
+        <li><b>주가</b>: 아마존 발표에 엔비디아·브로드컴 <span class="up">+5%</span>, AMD <span class="up">+6%</span>. → 국내 HBM 직접 수혜.</li>
+      </ul>
+    </div>
+
+    <div class="sector">
+      <h3><span class="tag ov">해외</span> 미국 반도체 — AI 매출 폭발</h3>
+      <ul>
+        <li><b>Broadcom</b>: 2분기 매출 222억 달러(<span class="up">+48% YoY</span>) 사상 최대, AI 반도체 매출 108억 달러(<span class="up">+143% YoY</span>).</li>
+        <li><b>TSMC</b>: 1분기 EPS $3.49(+8.4% 서프라이즈), 매출 +35% YoY. 6/26 종가 $430.30, 선행 PER 약 24배.</li>
+        <li><b>AMD</b>: 아마존 capex 발표에 <span class="up">+6%</span>. 데이터센터 시장 공략 지속.</li>
+        <li><b>변수</b>: 대중국 첨단노드 수출규제가 TAM 상한을 제약.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>투자 관점</h2>
+    <table>
+      <thead><tr><th>섹터</th><th>단기 (1주~1개월)</th><th>중기 (1~6개월)</th></tr></thead>
+      <tbody>
+        <tr><td>국내 반도체</td><td>2분기 실적 서프라이즈 기대, 컨센 상향 랠리</td><td>삼성 HBM4 점유율 반등 가시화 여부</td></tr>
+        <tr><td>2차전지</td><td>ESS 모멘텀 우위, EV는 여전히 약함</td><td>북미 ESS·탈중국 수혜 지속성</td></tr>
+        <tr><td>바이오</td><td>바이오USA 후속 계약 뉴스 민감</td><td>ADC·GLP-1 기술수출 성사 여부</td></tr>
+        <tr><td>AI/빅테크</td><td>capex 서프라이즈로 강세</td><td>6,600억 달러 투자 집행의 지속성</td></tr>
+        <tr><td>미국 반도체</td><td>AI 매출 강세, 종목별 차별화</td><td>수출규제·밸류에이션 부담 점검</td></tr>
+      </tbody>
+    </table>
+    <div class="note">핵심 연결고리: 빅테크 capex(6,600억 달러) → 엔비디아 GPU → HBM 수요 → 삼성전자·SK하이닉스 실적. 해외 capex 발표가 국내 반도체의 선행 지표.</div>
+  </section>
+
+  <section>
+    <h2>리스크 요인</h2>
+    <div class="sector risks">
+      <ul>
+        <li><b>실적 후 차익실현</b>: 컨센서스가 이미 큰 폭 상향 — 기대 충족해도 'sell-the-news' 가능(브로드컴 6월 초 사례).</li>
+        <li><b>HBM 경쟁 심화</b>: 삼성 진입으로 SK하이닉스 독점 프리미엄 축소 가능.</li>
+        <li><b>수출 규제 확대</b>: 대중국 반도체 장비·노드 규제 강화 시 공급망·TAM 변수.</li>
+        <li><b>EV 수요 부진 지속</b>: 2차전지 ESS 외 본업 회복 지연.</li>
+        <li><b>밸류에이션 부담</b>: AI·반도체 단기 급등 구간, 변동성 확대 주의.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>출처</h2>
+    <div class="link-line">
+      <a class="src" href="https://www.fnnews.com/news/202606272300381903">삼성·SK 2분기 실적 기대 (파이낸셜뉴스)</a>
+      <a class="src" href="https://www.tradingkey.com/kr/analysis/stocks/more/261879259-sk-hynix-hbm-shortage-samsung-tracker-valuation-tradingkey">HBM 점유율 (TradingKey)</a>
+      <a class="src" href="https://www.finance-scope.com/article/view/scp202601300013">LG엔솔 ESS 전환 (finance-scope)</a>
+      <a class="src" href="https://finance.thesmileinfo.com/2026/06/battery.html">2차전지·ESS 전망 (thesmileinfo)</a>
+      <a class="src" href="https://www.medicaldaily.co.kr/post/20550">셀트리온 바이오USA (메디컬데일리)</a>
+      <a class="src" href="https://news.nate.com/view/20260624n06265">기술수출 13조 (네이트)</a>
+      <a class="src" href="https://finance.yahoo.com/news/big-tech-set-to-spend-650-billion-in-2026-as-ai-investments-soar-163907630.html">빅테크 AI capex (Yahoo Finance)</a>
+      <a class="src" href="https://financefeeds.com/tsmc-stock-forecast-590-bull-330-bear-2026/">TSMC 전망 (FinanceFeeds)</a>
+      <a class="src" href="https://www.sec.gov/Archives/edgar/data/0001730168/000173016826000051/avgo-05032026x8kxex99.htm">Broadcom 2분기 (SEC)</a>
+    </div>
+  </section>
+
+  <footer>
+    본 리포트는 정보 제공 목적이며 투자 권유가 아닙니다. · Generated 2026-06-28
+  </footer>
+
+</div>
+</body>
+</html>

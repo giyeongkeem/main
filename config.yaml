@@ -1,0 +1,43 @@
+# 섹터 뉴스 리포트 에이전트 설정
+#
+# sectors 아래에 관심 섹터를 자유롭게 추가/수정하세요.
+# keywords는 검색 정확도를 높이기 위한 힌트입니다 (종목명, 테마 등).
+
+report:
+  language: ko
+  output_dir: reports
+  timezone: Asia/Seoul
+
+# 백엔드 선택:
+#   claude — Claude API 사용. 품질 높고 웹검색 내장. API 크레딧 비용 발생.
+#   ollama — 로컬 LLM + 무료 뉴스(RSS). 비용 0, 본인 PC에서 ollama 실행 필요.
+backend:
+  type: ollama            # claude | ollama  (맥북 무료 로컬 모드)
+  ollama:
+    model: qwen2.5:72b    # 128GB RAM 권장. 사양 낮으면 qwen2.5:32b / 14b / 7b
+    host: http://localhost:11434
+
+# 로컬(ollama) 백엔드용 무료 뉴스 수집 설정 (Google News RSS)
+news:
+  max_items_per_sector: 8
+  days: 7
+
+model:
+  name: claude-opus-4-8
+  effort: high
+  # 섹터당 웹 검색 최대 횟수 (claude 백엔드 비용 제어)
+  max_web_searches_per_sector: 8
+
+sectors:
+  domestic:
+    - name: 반도체
+      keywords: [삼성전자, SK하이닉스, HBM, 파운드리, 반도체 수출]
+    - name: 2차전지
+      keywords: [LG에너지솔루션, 삼성SDI, 에코프로, 전고체 배터리, 양극재]
+    - name: 바이오/제약
+      keywords: [삼성바이오로직스, 셀트리온, 신약 승인, 기술수출]
+  overseas:
+    - name: AI / 빅테크
+      keywords: [NVIDIA, Microsoft, Google, OpenAI, AI 데이터센터 투자]
+    - name: 미국 반도체
+      keywords: [TSMC, AMD, Broadcom, 반도체 장비, 수출 규제]
