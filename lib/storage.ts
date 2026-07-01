@@ -1,7 +1,7 @@
 /**
  * 이미지 저장 계층 (서버 전용).
  *   - SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY 설정됨 → Supabase Storage (배포/영구 저장)
- *   - 미설정 → 로컬 public/uploads (로컬 개발용)
+ *   - 미설정 → 로컬 data/uploads (/api/uploads 로 서빙, 로컬 개발용)
  *
  * 버킷은 첫 업로드 시 자동 생성(public)됩니다.
  */
@@ -57,8 +57,9 @@ export async function saveImage(
     return data.publicUrl as string;
   }
 
-  const dir = path.join(process.cwd(), "public", "uploads");
+  const dir = path.join(process.cwd(), "data", "uploads");
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, filename), buffer);
-  return `/uploads/${filename}`;
+  // /api/uploads 로 서빙 — next dev/start 모두 동작
+  return `/api/uploads/${filename}`;
 }

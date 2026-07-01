@@ -96,7 +96,7 @@ ADMIN_SECRET="아무_긴_임의문자열"
 
 ### 🖼 이미지 저장 (Supabase Storage)
 `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` 를 설정하면 업로드 이미지가 **Supabase Storage**(public 버킷 `uploads`)에
-저장됩니다. 버킷은 첫 업로드 시 자동 생성됩니다. 미설정 시 로컬 `public/uploads` 를 사용합니다.
+저장됩니다. 버킷은 첫 업로드 시 자동 생성됩니다. 미설정 시 로컬 `data/uploads`(`/api/uploads`로 서빙)를 사용합니다.
 
 ### 🔑 소셜 로그인 설정 (카카오 · 네이버 · 애플)
 환경변수가 있는 제공자만 로그인 버튼이 활성화됩니다. 공통으로 `AUTH_SECRET` 이 필요합니다.
