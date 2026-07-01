@@ -31,6 +31,8 @@ export const DEFAULT_DESIGN: Design = {
   headingScale: 1,
   showPageNumbers: true,
   showHandle: true,
+  headingFont: "pretendard",
+  bodyFont: "pretendard",
 };
 
 export const DEFAULT_META: Meta = {

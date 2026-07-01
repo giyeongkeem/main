@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useProject } from "@/store/useProject";
 import { PALETTES, SIZES, TEMPLATES } from "@/lib/presets";
+import { FONTS } from "@/lib/fonts";
 import { fileToDataUrl } from "@/lib/imageClient";
-import CardPreview from "@/components/CardPreview";
+import CardPreview, { type EditableField } from "@/components/CardPreview";
 import type { CardKind, ImageMode } from "@/lib/types";
 
 const KINDS: CardKind[] = ["cover", "content", "closing"];
@@ -14,8 +15,45 @@ export default function Step4Design() {
   const [sel, setSel] = useState(0);
   const [imgUrl, setImgUrl] = useState("");
   const [imgErr, setImgErr] = useState("");
+  const [flash, setFlash] = useState<EditableField | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout>>();
+  const fieldRefs = {
+    eyebrow: useRef<HTMLInputElement>(null),
+    title: useRef<HTMLTextAreaElement>(null),
+    body: useRef<HTMLTextAreaElement>(null),
+    image: useRef<HTMLDivElement>(null),
+  };
 
-  if (!article) {
+  // all hooks must run before the empty-state early return below
+  const cards = article?.cards ?? [];
+  const idx = Math.min(sel, Math.max(cards.length - 1, 0));
+  const current = cards[idx];
+
+  // ── click-to-edit bridge from the preview iframe ─────────────
+  const onPreviewEdit = useCallback(
+    (fieldName: EditableField, value: string) => {
+      if (!current) return;
+      if (fieldName !== "eyebrow" && fieldName !== "title" && fieldName !== "body") return;
+      if ((current[fieldName] ?? "") === value) return;
+      updateCard(current.id, { [fieldName]: value });
+    },
+    [current, updateCard]
+  );
+
+  const onPreviewFocus = useCallback(
+    (fieldName: EditableField) => {
+      const ref = fieldRefs[fieldName];
+      ref?.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFlash(fieldName);
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash(null), 1200);
+    },
+    // refs are stable across renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  if (!article || !current) {
     return (
       <div className="card-panel mx-auto max-w-md text-center text-sm text-gray-400">
         아티클이 없습니다. 이전 단계에서 먼저 생성하세요.
@@ -23,9 +61,6 @@ export default function Step4Design() {
     );
   }
 
-  const cards = article.cards;
-  const current = cards[Math.min(sel, cards.length - 1)];
-  const idx = Math.min(sel, cards.length - 1);
   const defaultMode = (): ImageMode => (current.kind === "cover" ? "background" : "top");
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -48,10 +83,12 @@ export default function Step4Design() {
     setImgUrl("");
   }
 
+  const flashCls = (f: EditableField) => (flash === f ? " ring-2 ring-blue-400" : "");
+
   return (
     <div className="space-y-4">
       {/* ── global design controls ─────────────────────────────── */}
-      <div className="card-panel grid gap-4 md:grid-cols-4">
+      <div className="card-panel grid gap-4 md:grid-cols-3 xl:grid-cols-5">
         <div>
           <div className="label">템플릿</div>
           <div className="grid grid-cols-2 gap-1.5">
@@ -83,6 +120,36 @@ export default function Step4Design() {
               />
             ))}
           </div>
+        </div>
+
+        <div>
+          <div className="label">폰트</div>
+          <label className="mb-0.5 block text-[11px] text-gray-500">제목</label>
+          <select
+            className="field mb-2"
+            value={design.headingFont ?? "pretendard"}
+            onChange={(e) => setDesign({ headingFont: e.target.value })}
+          >
+            {FONTS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+                {f.hint ? ` · ${f.hint}` : ""}
+              </option>
+            ))}
+          </select>
+          <label className="mb-0.5 block text-[11px] text-gray-500">본문</label>
+          <select
+            className="field"
+            value={design.bodyFont ?? "pretendard"}
+            onChange={(e) => setDesign({ bodyFont: e.target.value })}
+          >
+            {FONTS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+                {f.hint ? ` · ${f.hint}` : ""}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -140,9 +207,21 @@ export default function Step4Design() {
         {/* preview column */}
         <div className="card-panel">
           <div className="mx-auto" style={{ maxWidth: 360 }}>
-            <CardPreview card={current} design={design} meta={meta} index={idx} total={cards.length} />
+            <CardPreview
+              card={current}
+              design={design}
+              meta={meta}
+              index={idx}
+              total={cards.length}
+              interactive
+              onEdit={onPreviewEdit}
+              onFocusField={onPreviewFocus}
+            />
           </div>
-          <div className="mt-3 flex justify-center gap-2 text-xs text-gray-400">
+          <div className="mt-2 text-center text-xs text-blue-300/80">
+            💡 카드의 글자를 직접 클릭해서 바로 고칠 수 있어요
+          </div>
+          <div className="mt-2 flex justify-center gap-2 text-xs text-gray-400">
             카드 {idx + 1} / {cards.length} · {current.kind}
           </div>
 
@@ -215,12 +294,18 @@ export default function Step4Design() {
 
           <div>
             <label className="label">라벨 (eyebrow)</label>
-            <input className="field" value={current.eyebrow ?? ""} onChange={(e) => updateCard(current.id, { eyebrow: e.target.value })} />
+            <input
+              ref={fieldRefs.eyebrow}
+              className={`field${flashCls("eyebrow")}`}
+              value={current.eyebrow ?? ""}
+              onChange={(e) => updateCard(current.id, { eyebrow: e.target.value })}
+            />
           </div>
           <div>
             <label className="label">제목</label>
             <textarea
-              className="field min-h-[60px] resize-none text-base font-semibold"
+              ref={fieldRefs.title}
+              className={`field min-h-[60px] resize-none text-base font-semibold${flashCls("title")}`}
               value={current.title ?? ""}
               onChange={(e) => updateCard(current.id, { title: e.target.value })}
             />
@@ -228,7 +313,8 @@ export default function Step4Design() {
           <div>
             <label className="label">본문</label>
             <textarea
-              className="field min-h-[160px] resize-none"
+              ref={fieldRefs.body}
+              className={`field min-h-[160px] resize-none${flashCls("body")}`}
               value={current.body ?? ""}
               onChange={(e) => updateCard(current.id, { body: e.target.value })}
             />
@@ -236,7 +322,7 @@ export default function Step4Design() {
           </div>
 
           {/* ── image ─────────────────────────────────────────── */}
-          <div className="border-t border-edge pt-3">
+          <div ref={fieldRefs.image} className={`rounded-lg border-t border-edge pt-3${flashCls("image")}`}>
             <label className="label">이미지</label>
             {current.image ? (
               <div className="space-y-2">

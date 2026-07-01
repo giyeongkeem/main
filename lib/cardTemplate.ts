@@ -1,10 +1,5 @@
 import type { Card, Design, ImageMode, Meta } from "./types";
-
-const FONT_LINKS = `
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-`;
-
-const SANS = `'Pretendard', system-ui, -apple-system, sans-serif`;
+import { fontLinkTags, getFont } from "./fonts";
 
 function esc(s = ""): string {
   return s
@@ -40,15 +35,66 @@ export interface RenderArgs {
   meta: Meta;
   index: number;
   total: number;
+  /**
+   * Preview-only editing mode: text becomes contenteditable, empty fields show
+   * placeholders, and edits/clicks are reported to the parent window as
+   * {type:"cardnews-edit"|"cardnews-focus", field, value} messages.
+   * NEVER set for export — placeholders/outlines would end up in the PNG.
+   */
+  interactive?: boolean;
 }
 
+// Runs inside the preview iframe. Static string — no interpolation needed.
+const EDIT_SCRIPT = `
+<script>
+(function () {
+  document.querySelectorAll('[data-field]').forEach(function (el) {
+    var field = el.getAttribute('data-field');
+    var editable = el.getAttribute('data-editable') === 'true';
+    if (!editable) {
+      el.addEventListener('click', function () {
+        parent.postMessage({ type: 'cardnews-focus', field: field }, '*');
+      });
+      return;
+    }
+    try { el.contentEditable = 'plaintext-only'; } catch (e) { el.contentEditable = 'true'; }
+    el.addEventListener('focus', function () {
+      parent.postMessage({ type: 'cardnews-focus', field: field }, '*');
+      if (el.getAttribute('data-empty') === '1') {
+        try { document.execCommand('selectAll', false, undefined); } catch (e) {}
+      }
+    });
+    el.addEventListener('input', function () { el.setAttribute('data-empty', '0'); });
+    el.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' && (field === 'title' || field === 'eyebrow')) {
+        ev.preventDefault();
+        el.blur();
+      }
+    });
+    el.addEventListener('blur', function () {
+      var value = el.getAttribute('data-empty') === '1' ? '' : el.innerText.replace(/\\n+$/, '');
+      parent.postMessage({ type: 'cardnews-edit', field: field, value: value }, '*');
+    });
+  });
+})();
+</script>`;
+
 /** Returns a complete, standalone HTML document for ONE card at exact size. */
-export function renderCardHTML({ card, design, meta, index, total }: RenderArgs): string {
+export function renderCardHTML({ card, design, meta, index, total, interactive }: RenderArgs): string {
   const { palette: p, template, headingScale: hs, size } = design;
   const isCover = card.kind === "cover";
   const isClosing = card.kind === "closing";
 
-  // ── image (all in Pretendard now; templates differ by weight/spacing) ──
+  // ── fonts ──
+  const headingFont = getFont(design.headingFont);
+  const bodyFont = getFont(design.bodyFont);
+  const fontLinks = fontLinkTags([headingFont, bodyFont]);
+  const templateHeadingWeight = template === "editorial" ? 700 : 800;
+  const headingWeight = Math.min(templateHeadingWeight, headingFont.maxWeight);
+  const headingLh = template === "editorial" ? 1.28 : 1.14;
+  const headingTracking = template === "editorial" ? "0em" : "-0.01em";
+
+  // ── image ──
   const hasImg = !!card.image;
   const mode: ImageMode = card.imageMode || (isCover ? "background" : "top");
   const overlay = typeof card.imageOverlay === "number" ? card.imageOverlay : 0.5;
@@ -63,11 +109,6 @@ export function renderCardHTML({ card, design, meta, index, total }: RenderArgs)
     bg = `linear-gradient(155deg, ${p.bg} 0%, ${hexToRgba(p.accent, 0.28)} 70%, ${p.bg} 130%)`;
   }
 
-  // template-driven heading treatment (no serif — Pretendard only)
-  const headingWeight = template === "editorial" ? 700 : 800;
-  const headingLh = template === "editorial" ? 1.28 : 1.14;
-  const headingTracking = template === "editorial" ? "0em" : "-0.01em";
-
   const coverSize = Math.round((template === "bold" ? 108 : 92) * hs);
   const titleSize = Math.round((template === "bold" ? 78 : 64) * hs);
   const bodySize = Math.round(40 * Math.min(hs, 1.15));
@@ -81,15 +122,28 @@ export function renderCardHTML({ card, design, meta, index, total }: RenderArgs)
   const justify = isCover ? "flex-end" : isClosing ? "center" : "center";
   const padBottom = isCover ? 176 : 110;
 
-  // eyebrow rendering: bold/gradient use an accent chip; others a small rule label
-  const eyebrowHtml = card.eyebrow
+  // ── text blocks (with click-to-edit placeholders in interactive mode) ──
+  const field = (name: string, empty: boolean) =>
+    interactive ? ` data-field="${name}" data-editable="true" data-empty="${empty ? 1 : 0}"` : "";
+
+  const eyebrowText = card.eyebrow || (interactive ? "라벨" : "");
+  const eyebrowHtml = eyebrowText
     ? template === "bold" || template === "gradient"
-      ? `<span class="eyebrow chip">${esc(card.eyebrow)}</span>`
-      : `<span class="eyebrow rule">${esc(card.eyebrow)}</span>`
+      ? `<span class="eyebrow chip"${field("eyebrow", !card.eyebrow)}>${esc(eyebrowText)}</span>`
+      : `<span class="eyebrow rule"${field("eyebrow", !card.eyebrow)}>${esc(eyebrowText)}</span>`
     : "";
 
-  const titleHtml = card.title ? `<h1 class="title">${esc(card.title)}</h1>` : "";
-  const bodyHtml = card.body ? `<div class="body">${paras(card.body)}</div>` : "";
+  const titleText = card.title || (interactive ? "제목을 입력하세요" : "");
+  const titleHtml = titleText ? `<h1 class="title"${field("title", !card.title)}>${esc(titleText)}</h1>` : "";
+
+  const bodyText = card.body || (interactive ? "본문을 입력하세요" : "");
+  const bodyBlock = isCover
+    ? bodyText
+      ? `<p class="cover-sub"${field("body", !card.body)}>${esc(bodyText)}</p>`
+      : ""
+    : bodyText
+      ? `<div class="body"${field("body", !card.body)}>${paras(bodyText)}</div>`
+      : "";
 
   const footerBits: string[] = [];
   if (design.showHandle && meta.handle) footerBits.push(`<span class="handle">${esc(meta.handle)}</span>`);
@@ -98,13 +152,26 @@ export function renderCardHTML({ card, design, meta, index, total }: RenderArgs)
   const footer = footerBits.length ? `<footer class="foot">${footerBits.join("")}</footer>` : "";
 
   const swipe = isCover && total > 1 ? `<div class="swipe">밀어서 보기 →</div>` : "";
+  const imgField = interactive ? ` data-field="image" data-editable="false"` : "";
+
+  const interactiveCss = interactive
+    ? `
+  [data-editable="true"] { cursor: text; border-radius: 8px; }
+  [data-editable="true"]:hover { outline: 3px dashed ${hexToRgba(p.accent, 0.6)}; outline-offset: 8px; }
+  [data-editable="true"]:focus { outline: 3px solid ${p.accent}; outline-offset: 8px; }
+  [data-editable="true"][data-empty="1"] { opacity: 0.45; }
+  [data-field="image"] { cursor: pointer; }
+  [data-field="image"]:hover { outline: 4px dashed ${hexToRgba(p.accent, 0.7)}; outline-offset: -4px; }
+  [contenteditable] { caret-color: ${p.accent}; }
+  `
+    : "";
 
   return `<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=${size.w}">
-${FONT_LINKS}
+${fontLinks}
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { background: #000; }
@@ -113,7 +180,7 @@ ${FONT_LINKS}
     height: ${size.h}px;
     background: ${bg};
     color: ${p.fg};
-    font-family: ${SANS};
+    font-family: ${bodyFont.family};
     position: relative;
     overflow: hidden;
     display: flex;
@@ -163,6 +230,7 @@ ${FONT_LINKS}
     display: inline-block;
   }
   .title {
+    font-family: ${headingFont.family};
     font-size: ${isCover ? coverSize : titleSize}px;
     font-weight: ${headingWeight};
     line-height: ${headingLh};
@@ -185,21 +253,23 @@ ${FONT_LINKS}
     font-size: 28px; color: ${subColor}; font-weight: 600; letter-spacing: 0.05em;
   }
   .accent-bar { width: 88px; height: 10px; border-radius: 999px; background: ${p.accent}; }
+${interactiveCss}
 </style>
 </head>
 <body>
   <div class="canvas" data-card>
-    ${bgPhoto ? `<div class="bg-photo"></div><div class="bg-scrim"></div>` : ""}
+    ${bgPhoto ? `<div class="bg-photo"></div><div class="bg-scrim"${imgField}></div>` : ""}
     <div class="stack">
-      ${topPhoto ? `<div class="top-photo"></div>` : ""}
+      ${topPhoto ? `<div class="top-photo"${imgField}></div>` : ""}
       ${eyebrowHtml}
       ${!isCover && template !== "bold" && !topPhoto ? `<div class="accent-bar"></div>` : ""}
       ${titleHtml}
-      ${isCover && card.body ? `<p class="cover-sub">${esc(card.body)}</p>` : isCover ? "" : bodyHtml}
+      ${bodyBlock}
       ${swipe}
     </div>
     ${footer}
   </div>
+${interactive ? EDIT_SCRIPT : ""}
 </body>
 </html>`;
 }

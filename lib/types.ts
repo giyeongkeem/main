@@ -92,6 +92,9 @@ export interface Design {
   headingScale: number;
   showPageNumbers: boolean;
   showHandle: boolean;
+  /** font ids from lib/fonts.ts — undefined (old projects) falls back to Pretendard */
+  headingFont?: string;
+  bodyFont?: string;
 }
 
 export interface Meta {
