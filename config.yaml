@@ -12,7 +12,7 @@ report:
 #   claude — Claude API 사용. 품질 높고 웹검색 내장. API 크레딧 비용 발생.
 #   ollama — 로컬 LLM + 무료 뉴스(RSS). 비용 0, 본인 PC에서 ollama 실행 필요.
 backend:
-  type: claude            # claude | ollama
+  type: ollama            # claude | ollama  (맥북 무료 로컬 모드)
   ollama:
     model: qwen2.5:72b    # 128GB RAM 권장. 사양 낮으면 qwen2.5:32b / 14b / 7b
     host: http://localhost:11434

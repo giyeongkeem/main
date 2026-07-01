@@ -39,6 +39,27 @@ python -m sector_news_agent.web      # 웹 UI
 
 로컬 모델은 웹 검색 기능이 없어, 섹터 키워드로 **Google News RSS**(무료)에서 최근 기사를 모아 모델에 넣고 브리핑·리포트를 작성합니다. Ollama 서버(`ollama serve`)가 떠 있어야 합니다.
 
+### 맥북 무료 영구 자동화 (매일 오전 7시)
+
+macOS `launchd`로 매일 오전 7시에 자동 실행합니다. **비용 0원**이며, 맥북이 7시에 잠자기 상태여도 **깨어나는 즉시 놓친 작업을 실행**합니다(cron과의 차이).
+
+```bash
+# 1) Ollama 설치(https://ollama.com) 후
+git clone https://github.com/giyeongkeem/main.git && cd main
+
+# 2) 설치 스크립트 실행 — venv·의존성·모델 다운로드·launchd 등록까지 한 번에
+bash scripts/install_macos.sh
+
+# 3) 즉시 한 번 테스트
+bash scripts/run_daily.sh          # reports/ 에 .md + .html 생성
+```
+
+- 리포트는 `reports/YYYY-MM-DD_sector_report.md` + `.html`로 저장됩니다.
+- 로그: `logs/daily.err.log`
+- 해제: `launchctl unload ~/Library/LaunchAgents/com.sectornews.dailyreport.plist`
+
+> 맥북이 7시에 완전히 꺼져 있으면 실행되지 않습니다(잠자기는 OK). 전원이 켜져 있고 잠자기 상태이기만 하면 됩니다.
+
 ## 사용법
 
 실행 방법은 3가지입니다: **로컬 웹 UI**, **클라우드 배포(어디서나 접속)**, **GitHub Actions(매일 자동)**.
