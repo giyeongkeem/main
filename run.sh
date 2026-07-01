@@ -2,37 +2,21 @@
 # Start Shorts Studio so other devices on the same Wi-Fi (e.g. iPhone) can connect.
 set -e
 cd "$(dirname "$0")"
+. scripts/_lib.sh
 
 PORT="${PORT:-8000}"
 
-# 처음 실행이면 .env를 자동 생성
-if [ ! -f .env ] && [ -f .env.example ]; then
-  cp .env.example .env
-  echo "ℹ️  .env 파일을 새로 만들었습니다."
-fi
+ensure_env_file
+warn_missing_keys
 
-# .env에 키가 비어 있으면 등록 명령어 안내 (python-dotenv는 같은 키가 중복되면 마지막 값을 사용)
-has_key() { grep -Eq "^$1=.+" .env 2>/dev/null; }
+# run.sh binds 0.0.0.0 so the LAN (iPhone) can reach it — which means the wider
+# network can too. Require a password so an empty DASHBOARD_PASSWORD can't leave
+# the dashboard (and the paid Claude/Pexels calls behind it) open to anyone on
+# the network. For a private localhost-only run, use: uvicorn app.main:app --port 8000
+PASSWORD=$(ensure_password)
 
-if ! has_key ANTHROPIC_API_KEY; then
-  echo ""
-  echo "⚠️  ANTHROPIC_API_KEY가 등록되지 않았습니다 — 샘플 스크립트 모드로 실행됩니다."
-  echo "   발급: https://console.anthropic.com → 아래 명령어로 등록 후 재시작:"
-  echo ""
-  echo "   echo 'ANTHROPIC_API_KEY=sk-ant-여기에-발급받은-키' >> .env"
-  echo ""
-fi
-
-if ! has_key PEXELS_API_KEY; then
-  echo "ℹ️  PEXELS_API_KEY가 없어 배경은 단색으로 만들어집니다. (선택사항)"
-  echo "   무료 발급: https://www.pexels.com/api/ → 등록 명령어:"
-  echo ""
-  echo "   echo 'PEXELS_API_KEY=여기에-발급받은-키' >> .env"
-  echo ""
-fi
-
-# Find the Mac's LAN IP (en0 = Wi-Fi on most Macs), with Linux fallback.
-IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
+IP=$(lan_ip)
+TS_IP=$(tailscale_ip)
 
 echo "──────────────────────────────────────────────"
 echo "  🎬 Shorts Studio"
@@ -43,17 +27,13 @@ if [ -n "$IP" ]; then
 else
   echo "  ⚠️ LAN IP를 찾지 못했습니다. 시스템 설정 > Wi-Fi에서 IP를 확인하세요."
 fi
-
-# Tailscale이 설치돼 있으면 셀룰러에서도 쓸 수 있는 주소를 함께 안내
-TS_BIN=$(command -v tailscale 2>/dev/null || true)
-[ -z "$TS_BIN" ] && [ -x "/Applications/Tailscale.app/Contents/MacOS/Tailscale" ] && TS_BIN="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
-if [ -n "$TS_BIN" ]; then
-  TS_IP=$("$TS_BIN" ip -4 2>/dev/null | head -1)
-  if [ -n "$TS_IP" ]; then
-    echo "  셀룰러:     http://${TS_IP}:${PORT}"
-    echo "              (아이폰 Tailscale 앱이 켜져 있으면 어디서든 접속)"
-  fi
+if [ -n "$TS_IP" ]; then
+  echo "  셀룰러:     http://${TS_IP}:${PORT}"
+  echo "              (아이폰 Tailscale 앱이 켜져 있으면 어디서든 접속)"
 fi
+echo ""
+echo "  사용자 이름: 아무거나 (예: me)"
+echo "  비밀번호:    ${PASSWORD}"
 echo "──────────────────────────────────────────────"
 
 exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT"

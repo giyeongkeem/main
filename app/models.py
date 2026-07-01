@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Segment(BaseModel):
@@ -19,9 +19,18 @@ class ScriptResult(BaseModel):
 
 
 class JobCreate(BaseModel):
-    topic: str = Field(min_length=1, max_length=300)
+    topic: str = Field(max_length=300)
     language: Literal["ko", "en"] = "ko"
-    voice: Optional[str] = None
+
+    @field_validator("topic")
+    @classmethod
+    def _strip_nonempty(cls, v: str) -> str:
+        # Strip before the emptiness check so whitespace-only topics are
+        # rejected (a bare min_length runs against the pre-strip value).
+        v = v.strip()
+        if not v:
+            raise ValueError("topic must not be empty")
+        return v
 
 
 class JobOut(BaseModel):

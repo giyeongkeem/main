@@ -3,6 +3,7 @@
 # quick tunnel. Generates a dashboard password automatically if missing.
 set -e
 cd "$(dirname "$0")"
+. scripts/_lib.sh
 
 PORT="${PORT:-8000}"
 
@@ -14,15 +15,8 @@ if ! command -v cloudflared >/dev/null 2>&1; then
   exit 1
 fi
 
-[ ! -f .env ] && [ -f .env.example ] && cp .env.example .env
-
-# 외부 공개 시 비밀번호 필수 — 없으면 자동 생성해서 .env에 저장
-if ! grep -Eq '^DASHBOARD_PASSWORD=.+' .env 2>/dev/null; then
-  PW=$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 12)
-  echo "DASHBOARD_PASSWORD=${PW}" >> .env
-  echo "🔐 접속 비밀번호를 자동 생성해 .env에 저장했습니다."
-fi
-PASSWORD=$(grep -E '^DASHBOARD_PASSWORD=' .env | tail -1 | cut -d= -f2-)
+ensure_env_file
+PASSWORD=$(ensure_password)
 
 cleanup() {
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null || true

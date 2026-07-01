@@ -18,6 +18,11 @@ from .pipeline import runner
 async def lifespan(app: FastAPI):
     config.OUTPUT_DIR.mkdir(exist_ok=True)
     db.init()
+    # The in-memory queue does not survive a restart; any job left mid-flight
+    # would otherwise show 'in progress' forever. Fail them so the state is honest.
+    stale = db.fail_stale_jobs("서버가 재시작되어 작업이 중단되었습니다. 다시 생성해 주세요.")
+    if stale:
+        print(f"[startup] marked {stale} interrupted job(s) as failed")
     worker_task = asyncio.create_task(runner.worker())
     yield
     worker_task.cancel()
@@ -47,6 +52,8 @@ async def basic_auth(request, call_next):
 
 
 def _to_out(job: dict) -> JobOut:
+    # 'completed' is set only after the mp4 is written, so status is an
+    # authoritative has_video flag — no per-request filesystem stat needed.
     return JobOut(
         id=job["id"],
         topic=job["topic"],
@@ -55,7 +62,7 @@ def _to_out(job: dict) -> JobOut:
         progress=job["progress"],
         error=job["error"],
         created_at=job["created_at"],
-        has_video=runner.video_path(job["id"]).exists(),
+        has_video=job["status"] == "completed",
         metadata=job["metadata"],
     )
 
@@ -68,7 +75,7 @@ async def health():
 @app.post("/api/jobs", status_code=201)
 async def create_job(payload: JobCreate):
     job_id = uuid.uuid4().hex[:12]
-    db.create_job(job_id, payload.topic.strip(), payload.language, payload.voice)
+    db.create_job(job_id, payload.topic, payload.language)  # topic already validated/stripped
     runner.enqueue(job_id)
     return {"id": job_id, "status": "queued"}
 
@@ -94,21 +101,16 @@ async def get_video(job_id: str):
     return FileResponse(path, media_type="video/mp4", filename=f"short_{job_id}.mp4")
 
 
-@app.get("/api/jobs/{job_id}/metadata")
-async def get_metadata(job_id: str):
-    path = runner.job_dir(job_id) / "metadata.json"
-    if not path.exists():
-        raise HTTPException(404, "metadata not ready")
-    return FileResponse(path, media_type="application/json")
-
-
 @app.delete("/api/jobs/{job_id}", status_code=204)
 async def delete_job(job_id: str):
     job = db.get_job(job_id)
     if job is None:
         raise HTTPException(404, "job not found")
-    if job_id == runner.current_job_id:
-        raise HTTPException(409, "job is currently running")
+    # Only terminal jobs are deletable. This covers the running job and any
+    # still queued in memory, so a delete can't remove a row whose id the worker
+    # will later dequeue, nor a job mid-render.
+    if job["status"] not in db.TERMINAL_STATUSES:
+        raise HTTPException(409, "job is still processing")
     db.delete_job(job_id)
     shutil.rmtree(runner.job_dir(job_id), ignore_errors=True)
 

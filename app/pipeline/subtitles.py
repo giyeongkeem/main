@@ -7,6 +7,8 @@ ffprobe-measured mp3 lengths, which are authoritative for the global timeline.
 
 from dataclasses import dataclass
 
+from .. import config
+
 MAX_WORDS_PER_CHUNK = 3
 MAX_CHARS_PER_CHUNK = 14
 
@@ -25,7 +27,7 @@ Style: Default,{fontname},88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
-DEFAULT_FONT = "Apple SD Gothic Neo"
+DEFAULT_FONT = config.SUBTITLE_FONT
 
 
 @dataclass
@@ -64,11 +66,16 @@ def chunk_words(words: list[tuple[float, float, str]]) -> list[Caption]:
     cur_len = 0
     for w in words:
         wlen = len(w[2])
-        if cur and (len(cur) >= MAX_WORDS_PER_CHUNK or cur_len + 1 + wlen > MAX_CHARS_PER_CHUNK):
+        # Prospective rendered length if w joins the current chunk: a joining
+        # space only when the chunk is non-empty. Split test and accumulator
+        # use the same formula so the budget matches the real caption width.
+        added = (1 if cur else 0) + wlen
+        if cur and (len(cur) >= MAX_WORDS_PER_CHUNK or cur_len + added > MAX_CHARS_PER_CHUNK):
             captions.append(Caption(cur[0][0], cur[-1][1], " ".join(x[2] for x in cur)))
             cur, cur_len = [], 0
+            added = wlen
         cur.append(w)
-        cur_len += (1 if cur_len else 0) + wlen
+        cur_len += added
     if cur:
         captions.append(Caption(cur[0][0], cur[-1][1], " ".join(x[2] for x in cur)))
     return captions
@@ -81,27 +88,6 @@ def extend_caption_ends(captions: list[Caption]) -> list[Caption]:
         end = captions[i + 1].start if i + 1 < len(captions) else c.end
         out.append(Caption(c.start, max(end, c.end), c.text))
     return out
-
-
-def build_timeline(
-    segments: list[tuple[list[tuple[float, float, str]], float]],
-) -> list[tuple[float, float, str]]:
-    """Offset each segment's word timings by the cumulative probed durations.
-
-    segments: list of (words, probed_duration_seconds) per segment, in order.
-    Returns a flat list of (start, end, text) on the global timeline.
-    """
-    timeline: list[tuple[float, float, str]] = []
-    t0 = 0.0
-    for words, duration in segments:
-        for start, end, text in words:
-            # Clamp word timings into their own segment window so trailing
-            # padding differences never bleed into the next segment.
-            s = min(start, duration)
-            e = min(end, duration)
-            timeline.append((t0 + s, t0 + e, text))
-        t0 += duration
-    return timeline
 
 
 def build_captions(

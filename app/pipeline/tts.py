@@ -20,6 +20,18 @@ async def synthesize_segment(text: str, voice: str, mp3_path: Path) -> tuple[Wor
     if config.MOCK_TTS:
         return await _mock_segment(text, mp3_path)
 
+    # Bound the network stream so a stalled edge-tts connection can't wedge the
+    # whole worker queue; the RenderError/TimeoutError propagates and fails just
+    # this job.
+    try:
+        words = await asyncio.wait_for(_stream_tts(text, voice, mp3_path), config.TTS_TIMEOUT)
+    except asyncio.TimeoutError:
+        raise RuntimeError(f"TTS timed out after {config.TTS_TIMEOUT:.0f}s")
+    duration = await ffprobe_duration(mp3_path)
+    return words, duration
+
+
+async def _stream_tts(text: str, voice: str, mp3_path: Path) -> WordTimings:
     import edge_tts
 
     words: WordTimings = []
@@ -32,8 +44,7 @@ async def synthesize_segment(text: str, voice: str, mp3_path: Path) -> tuple[Wor
                 start = ticks_to_seconds(chunk["offset"])
                 end = ticks_to_seconds(chunk["offset"] + chunk["duration"])
                 words.append((start, end, chunk["text"]))
-    duration = await ffprobe_duration(mp3_path)
-    return words, duration
+    return words
 
 
 async def _mock_segment(text: str, mp3_path: Path) -> tuple[WordTimings, float]:
@@ -61,11 +72,14 @@ async def _mock_segment(text: str, mp3_path: Path) -> tuple[WordTimings, float]:
 
 
 async def synthesize_all(texts: list[str], voice: str, work_dir: Path) -> list[tuple[Path, WordTimings, float]]:
-    """Synthesize every segment sequentially; returns (mp3_path, words, duration) per segment."""
-    results = []
-    for i, text in enumerate(texts):
-        mp3_path = work_dir / f"narration_{i}.mp3"
-        words, duration = await synthesize_segment(text, voice, mp3_path)
-        results.append((mp3_path, words, duration))
-        await asyncio.sleep(0)  # yield to the event loop between segments
-    return results
+    """Synthesize all segments concurrently; returns (mp3_path, words, duration) per segment.
+
+    Each segment writes its own file with no shared state, so they run in
+    parallel — TTS is network-bound and otherwise serializes on round-trip
+    latency.
+    """
+    paths = [work_dir / f"narration_{i}.mp3" for i in range(len(texts))]
+    results = await asyncio.gather(
+        *(synthesize_segment(text, voice, path) for text, path in zip(texts, paths))
+    )
+    return [(path, words, duration) for path, (words, duration) in zip(paths, results)]

@@ -14,7 +14,6 @@ CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     topic TEXT NOT NULL,
     language TEXT NOT NULL,
-    voice TEXT,
     status TEXT NOT NULL DEFAULT 'queued',
     progress INTEGER NOT NULL DEFAULT 0,
     error TEXT,
@@ -23,14 +22,32 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 """
 
+TERMINAL_STATUSES = ("completed", "failed")
+
 
 def init(db_path=None) -> None:
     global _conn
     _conn = sqlite3.connect(str(db_path or config.DB_PATH), check_same_thread=False)
     _conn.row_factory = sqlite3.Row
+    # WAL lets dashboard reads proceed without blocking the worker's writes.
+    _conn.execute("PRAGMA journal_mode=WAL")
     with _lock:
         _conn.execute(SCHEMA)
         _conn.commit()
+
+
+def fail_stale_jobs(message: str) -> int:
+    """Mark any non-terminal job as failed. Called at startup: the in-memory
+    queue does not survive a restart, so rows left mid-flight would otherwise
+    show 'in progress' forever."""
+    with _lock:
+        cur = _conn.execute(
+            "UPDATE jobs SET status = 'failed', error = ? "
+            "WHERE status NOT IN ('completed', 'failed')",
+            (message,),
+        )
+        _conn.commit()
+        return cur.rowcount
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
@@ -39,12 +56,12 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     return d
 
 
-def create_job(job_id: str, topic: str, language: str, voice: Optional[str]) -> dict:
+def create_job(job_id: str, topic: str, language: str) -> dict:
     created_at = datetime.now(timezone.utc).isoformat()
     with _lock:
         _conn.execute(
-            "INSERT INTO jobs (id, topic, language, voice, created_at) VALUES (?, ?, ?, ?, ?)",
-            (job_id, topic, language, voice, created_at),
+            "INSERT INTO jobs (id, topic, language, created_at) VALUES (?, ?, ?, ?)",
+            (job_id, topic, language, created_at),
         )
         _conn.commit()
     return get_job(job_id)

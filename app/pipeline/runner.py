@@ -34,8 +34,14 @@ async def worker() -> None:
             await run_pipeline(job_id)
         except Exception as exc:  # noqa: BLE001 — job failures must not kill the worker
             detail = f"{exc}\n{traceback.format_exc(limit=3)}"
-            db.update_job(job_id, status="failed", error=str(exc)[:2000])
             print(f"[job {job_id}] failed: {detail}")
+            # The failure-recording write is the call most likely to throw during
+            # a real failure (DB locked, disk full). Guard it so the worker loop
+            # survives — otherwise one bad job kills processing for every future one.
+            try:
+                db.update_job(job_id, status="failed", error=str(exc)[:2000])
+            except Exception as db_exc:  # noqa: BLE001
+                print(f"[job {job_id}] could not record failure: {db_exc}")
         finally:
             current_job_id = None
             queue.task_done()
@@ -51,7 +57,7 @@ async def run_pipeline(job_id: str) -> None:
     out_dir = job_dir(job_id)
     work = out_dir / "work"
     work.mkdir(parents=True, exist_ok=True)
-    voice = job["voice"] or config.VOICES[job["language"]]
+    voice = config.VOICES[job["language"]]
 
     # 1. Script
     db.update_job(job_id, status="generating_script", progress=5)
@@ -71,6 +77,19 @@ async def run_pipeline(job_id: str) -> None:
     db.update_job(job_id, status="generating_audio", progress=25)
     texts = [seg.text for seg in script.segments]
     tts_results = await tts.synthesize_all(texts, voice, work)
+
+    # Enforce the <=60s Shorts promise: keep whole segments while the cumulative
+    # narration stays under the cap (always keep at least the first).
+    kept = 1
+    total = tts_results[0][2] if tts_results else 0.0
+    for i in range(1, len(tts_results)):
+        if total + tts_results[i][2] > config.MAX_VIDEO_SECONDS:
+            break
+        total += tts_results[i][2]
+        kept = i + 1
+    if kept < len(tts_results):
+        script.segments = script.segments[:kept]
+        tts_results = tts_results[:kept]
 
     # 3. Background clips
     db.update_job(job_id, status="fetching_video", progress=30)

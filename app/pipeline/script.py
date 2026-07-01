@@ -40,7 +40,7 @@ def _load_fixture(topic: str, language: str) -> ScriptResult:
 
 
 async def generate_script(topic: str, language: str) -> ScriptResult:
-    if config.MOCK_SCRIPT or not config.ANTHROPIC_API_KEY:
+    if config.use_mock_script():
         return _load_fixture(topic, language)
 
     from anthropic import AsyncAnthropic
