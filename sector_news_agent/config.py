@@ -35,6 +35,10 @@ class Config:
     news_days: int = 7
     output_dir: Path = Path("reports")
     timezone: str = "Asia/Seoul"
+    # 아카이빙
+    archive_git: bool = False
+    notion_database_id: str = ""
+    github_repo_url: str = ""  # Notion 페이지의 GitHub 링크 생성용
 
 
 def load_config(path: str | Path = "config.yaml") -> Config:
@@ -63,6 +67,9 @@ def load_config(path: str | Path = "config.yaml") -> Config:
     if backend not in ("claude", "ollama"):
         raise ValueError(f"backend.type은 'claude' 또는 'ollama'여야 합니다 (현재: {backend}).")
 
+    archive_cfg = raw.get("archive") or {}
+    notion_cfg = archive_cfg.get("notion") or {}
+
     return Config(
         sectors=sectors,
         backend=backend,
@@ -75,4 +82,7 @@ def load_config(path: str | Path = "config.yaml") -> Config:
         news_days=int(news_cfg.get("days", 7)),
         output_dir=Path(report_cfg.get("output_dir", "reports")),
         timezone=str(report_cfg.get("timezone", "Asia/Seoul")),
+        archive_git=bool(archive_cfg.get("git", False)),
+        notion_database_id=str(notion_cfg.get("database_id", "") or ""),
+        github_repo_url=str(archive_cfg.get("github_repo_url", "") or "").rstrip("/"),
     )

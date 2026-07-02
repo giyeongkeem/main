@@ -58,6 +58,23 @@ bash scripts/run_daily.sh          # reports/ 에 .md + .html 생성
 - 로그: `logs/daily.err.log`
 - 해제: `launchctl unload ~/Library/LaunchAgents/com.sectornews.dailyreport.plist`
 
+### 아카이빙 (GitHub + Notion 자동 보관)
+
+리포트 생성 후 자동으로 두 곳에 보관합니다. `config.yaml`의 `archive` 섹션에서 켜고 끕니다.
+
+**① GitHub** (`archive.git: true`) — `reports/` 변경분을 커밋하고 현재 브랜치에 푸시합니다. 맥북에 해당 저장소 push 권한(git 인증)이 되어 있으면 추가 설정이 없습니다.
+
+**② Notion** (`archive.notion.database_id`) — "섹터 리포트 아카이브" 데이터베이스에 날짜별 페이지를 만듭니다. 최초 1회 설정:
+
+1. [notion.so/profile/integrations](https://www.notion.so/profile/integrations) → **New integration** (Internal) → 워크스페이스 선택 → 생성 후 **시크릿 키 복사** (`ntn_...` 또는 `secret_...`)
+2. Notion에서 **섹터 리포트 아카이브** 데이터베이스 페이지 열기 → 우상단 `⋯` → **연결(Connections)** → 방금 만든 통합 추가
+3. 저장소 루트에 `.env` 파일 생성 (git에 커밋되지 않음):
+   ```
+   NOTION_API_KEY=여기에_시크릿_키
+   ```
+
+키가 없거나 실패해도 리포트 생성 자체는 정상 진행됩니다(아카이빙만 생략).
+
 > 맥북이 7시에 완전히 꺼져 있으면 실행되지 않습니다(잠자기는 OK). 전원이 켜져 있고 잠자기 상태이기만 하면 됩니다.
 
 ## 사용법

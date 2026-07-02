@@ -149,4 +149,27 @@ def run(cfg: Config, output_path: Path | None = None, progress: ProgressFn = _de
     except Exception as e:
         progress("status", f"리포트 저장 완료: {output_path} (HTML 생성 생략: {e})")
 
+    # 아카이빙 (부가 기능 — 실패해도 리포트 생성은 성공)
+    date_str = now.strftime("%Y-%m-%d")
+    if cfg.archive_git:
+        progress("status", "GitHub 아카이빙...")
+        try:
+            from .archive import git_archive
+
+            git_archive(output_path.resolve().parent.parent, date_str, progress)
+        except Exception as e:
+            progress("status", f"  (GitHub 아카이빙 오류: {e})")
+    if cfg.notion_database_id:
+        progress("status", "Notion 아카이빙...")
+        try:
+            from .archive import notion_archive
+
+            gh_url = (
+                f"{cfg.github_repo_url}/blob/main/reports/{output_path.name}"
+                if cfg.github_repo_url else ""
+            )
+            notion_archive(report, date_str, cfg, gh_url, progress)
+        except Exception as e:
+            progress("status", f"  (Notion 아카이빙 오류: {e})")
+
     return output_path
