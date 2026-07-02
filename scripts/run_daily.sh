@@ -8,6 +8,12 @@ cd "$(cd "$(dirname "$0")/.." && pwd)"
 # launchd는 최소 PATH로 실행되므로 Homebrew 경로를 보강
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
+# .env가 있으면 로드 (NOTION_API_KEY 등 시크릿 — git에 커밋되지 않음)
+if [ -f .env ]; then
+  set -a; # shellcheck disable=SC1091
+  source .env; set +a
+fi
+
 echo "===== $(date '+%Y-%m-%d %H:%M:%S') 리포트 생성 시작 ====="
 
 # 1) ollama 서버 확인, 없으면 백그라운드 기동

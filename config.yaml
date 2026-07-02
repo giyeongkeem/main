@@ -22,6 +22,14 @@ news:
   max_items_per_sector: 8
   days: 7
 
+# 아카이빙 (리포트 생성 후 자동 보관)
+archive:
+  git: true                                   # reports/를 커밋·푸시 (저장소에 push 권한 필요)
+  github_repo_url: https://github.com/giyeongkeem/main   # Notion 페이지의 원문 링크용
+  notion:
+    # Notion 아카이빙: NOTION_API_KEY 환경변수(통합 시크릿) 필요 — README 참고
+    database_id: 23343531e2214b93be8411266f6d9624   # "섹터 리포트 아카이브" DB
+
 model:
   name: claude-opus-4-8
   effort: high
