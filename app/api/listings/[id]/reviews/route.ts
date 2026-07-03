@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addReview, deleteReview, getById } from "@/lib/store";
+import { addReview, deleteReview, getById, toPublic } from "@/lib/store";
 import { isAdmin } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     rating: Number(body.rating) || 5,
     text: body.text,
   });
-  return NextResponse.json(updated, { status: 201 });
+  return NextResponse.json(updated ? toPublic(updated) : null, { status: 201 });
 }
 
 // 관리자: 후기 삭제

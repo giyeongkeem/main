@@ -32,6 +32,12 @@ async function loadPublished(): Promise<Listing[]> {
   return (await loadAll()).filter(isPublished);
 }
 
+/** 공개 응답용 — 관리자 전용 필드(신청자 연락처)를 제거합니다. */
+export function toPublic(listing: Listing): Omit<Listing, "submitterContact"> {
+  const { submitterContact: _private, ...pub } = listing;
+  return pub;
+}
+
 /* ---------- 조회 (공개) ---------- */
 
 export async function getPublished(): Promise<Listing[]> {
@@ -156,13 +162,13 @@ export async function setStatus(
   return updateListing(id, { status });
 }
 
-/* ---------- 후기 ---------- */
+/* ---------- 후기 ----------
+ * 평점/후기 수는 증분 방식으로 갱신합니다.
+ * (시드 데이터의 집계치(예: 후기 218개)는 보존하면서 새 후기만 가중 반영 —
+ *  후기 배열 길이로 재계산하면 시드 집계가 파괴됩니다)
+ */
 
-function recalc(reviews: Review[]) {
-  const count = reviews.length;
-  const avg = count ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / count : 0;
-  return { count, avg: Math.round(avg * 10) / 10 };
-}
+const clampRating = (v: number) => Math.min(5, Math.max(0, Math.round(v * 10) / 10));
 
 export async function addReview(
   id: string,
@@ -179,9 +185,11 @@ export async function addReview(
     date: new Date().toISOString().slice(0, 7),
   };
   listing.reviews = [review, ...(listing.reviews ?? [])];
-  const { count, avg } = recalc(listing.reviews);
-  listing.reviewCount = count;
-  listing.rating = avg;
+  const prevCount = Math.max(listing.reviewCount ?? 0, 0);
+  const prevAvg = listing.rating ?? 0;
+  const newCount = prevCount + 1;
+  listing.rating = clampRating((prevAvg * prevCount + review.rating) / newCount);
+  listing.reviewCount = newCount;
   await saveAll(all);
   return listing;
 }
@@ -190,10 +198,15 @@ export async function deleteReview(id: string, reviewId: string): Promise<Listin
   const all = await loadAll();
   const listing = all.find((l) => l.id === id);
   if (!listing) return null;
+  const target = (listing.reviews ?? []).find((r) => r.id === reviewId);
+  if (!target) return listing;
   listing.reviews = (listing.reviews ?? []).filter((r) => r.id !== reviewId);
-  const { count, avg } = recalc(listing.reviews);
-  listing.reviewCount = count;
-  listing.rating = avg;
+  const prevCount = Math.max(listing.reviewCount ?? 0, 1);
+  const prevAvg = listing.rating ?? 0;
+  const newCount = prevCount - 1;
+  listing.rating =
+    newCount === 0 ? 0 : clampRating((prevAvg * prevCount - target.rating) / newCount);
+  listing.reviewCount = newCount;
   await saveAll(all);
   return listing;
 }

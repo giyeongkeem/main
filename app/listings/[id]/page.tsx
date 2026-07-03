@@ -29,7 +29,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const listing = await getById(id);
-  if (!listing) return { title: "찾을 수 없음" };
+  if (!listing || listing.status === "pending") return { title: "찾을 수 없음" };
   return {
     title: `${listing.name} — ${CATEGORY_LABEL[listing.type]}`,
     description: `${listing.district} ${listing.neighborhood} · ${listing.tagline}. 평점 ${listing.rating.toFixed(1)}, 후기 ${listing.reviewCount}개.`,
