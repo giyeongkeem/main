@@ -15,7 +15,7 @@ DB_PATH = BASE_DIR / "jobs.db"
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
-SHORTS_MODEL = os.environ.get("SHORTS_MODEL", "claude-opus-4-8")
+SHORTS_MODEL = os.environ.get("SHORTS_MODEL", "claude-fable-5")
 MOCK_SCRIPT = os.environ.get("MOCK_SCRIPT", "") == "1"
 MOCK_TTS = os.environ.get("MOCK_TTS", "") == "1"
 # When set, every request must authenticate (HTTP Basic, any username).

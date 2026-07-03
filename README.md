@@ -83,7 +83,7 @@ brew install cloudflared   # 처음 한 번만
 
 ## 동작 방식
 
-1. **스크립트** — Claude(`claude-opus-4-8`, `.env`의 `SHORTS_MODEL`로 변경 가능)가 훅 중심의 4~6 세그먼트 대본과 제목/설명/태그를 구조화 출력으로 생성합니다. 한국어/영어 선택 가능.
+1. **스크립트** — Claude(`claude-fable-5` 기본, `.env`의 `SHORTS_MODEL`로 변경 가능 — 비용을 아끼려면 `claude-opus-4-8`)가 훅 중심의 4~6 세그먼트 대본과 제목/설명/태그를 구조화 출력으로 생성합니다. 한국어/영어 선택 가능.
 2. **음성** — edge-tts(무료)가 세그먼트별 mp3를 합성하고, 단어 단위 타이밍(WordBoundary)을 수집합니다. 음성: `ko-KR-SunHiNeural` / `en-US-AriaNeural`.
 3. **배경** — Pexels에서 세로 스톡 영상을 세그먼트 키워드로 검색·다운로드합니다. 키가 없거나 검색 실패 시 해당 세그먼트는 단색 배경으로 대체됩니다.
 4. **자막** — 단어 타이밍을 2~3단어 청크로 묶어 쇼츠 스타일 ASS 자막을 만듭니다. 폰트는 `Apple SD Gothic Neo`(맥 기본, 한·영 지원).
