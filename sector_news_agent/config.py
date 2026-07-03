@@ -1,7 +1,13 @@
-"""config.yaml 로딩 및 검증."""
+"""config.yaml 로딩 및 검증.
+
+일부 설정은 환경변수로 오버라이드할 수 있다 (CI/로컬 설정 충돌 방지):
+- SECTOR_AGENT_BACKEND: backend.type 오버라이드 ("claude" | "ollama")
+- SECTOR_AGENT_ARCHIVE_GIT: archive.git 오버라이드 ("true" | "false")
+"""
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -63,12 +69,24 @@ def load_config(path: str | Path = "config.yaml") -> Config:
     ollama_cfg = backend_cfg.get("ollama") or {}
     news_cfg = raw.get("news") or {}
 
-    backend = str(backend_cfg.get("type", "claude")).lower()
+    # 환경변수가 config.yaml보다 우선한다. config.yaml은 로컬(맥북 ollama) 기준으로
+    # 커밋되어 있고, GitHub Actions 등 CI는 환경변수로 claude 백엔드를 강제한다.
+    backend = str(
+        os.environ.get("SECTOR_AGENT_BACKEND") or backend_cfg.get("type", "claude")
+    ).strip().lower()
     if backend not in ("claude", "ollama"):
         raise ValueError(f"backend.type은 'claude' 또는 'ollama'여야 합니다 (현재: {backend}).")
 
     archive_cfg = raw.get("archive") or {}
     notion_cfg = archive_cfg.get("notion") or {}
+
+    archive_git_env = os.environ.get("SECTOR_AGENT_ARCHIVE_GIT", "").strip().lower()
+    if archive_git_env in ("true", "1", "yes"):
+        archive_git = True
+    elif archive_git_env in ("false", "0", "no"):
+        archive_git = False
+    else:
+        archive_git = bool(archive_cfg.get("git", False))
 
     return Config(
         sectors=sectors,
@@ -82,7 +100,7 @@ def load_config(path: str | Path = "config.yaml") -> Config:
         news_days=int(news_cfg.get("days", 7)),
         output_dir=Path(report_cfg.get("output_dir", "reports")),
         timezone=str(report_cfg.get("timezone", "Asia/Seoul")),
-        archive_git=bool(archive_cfg.get("git", False)),
+        archive_git=archive_git,
         notion_database_id=str(notion_cfg.get("database_id", "") or ""),
         github_repo_url=str(archive_cfg.get("github_repo_url", "") or "").rstrip("/"),
     )

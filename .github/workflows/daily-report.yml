@@ -26,6 +26,12 @@ jobs:
       - name: Generate report
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # config.yaml은 로컬(맥북 ollama) 기준 — CI에서는 claude 백엔드를 강제
+          SECTOR_AGENT_BACKEND: claude
+          # 커밋·푸시는 아래 "Commit report" 스텝이 전담 (에이전트 내부 아카이빙 중복 방지)
+          SECTOR_AGENT_ARCHIVE_GIT: "false"
+          # Notion 아카이빙: 저장소 시크릿에 NOTION_API_KEY를 등록하면 활성화 (없으면 생략됨)
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
         run: python -m sector_news_agent
 
       - name: Commit report

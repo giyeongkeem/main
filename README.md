@@ -146,7 +146,18 @@ sectors:
 
 `.github/workflows/daily-report.yml`이 매일 한국시간 오전 7시 30분에 리포트를 생성해 `reports/`에 커밋합니다.
 
-사용하려면 저장소 **Settings → Secrets and variables → Actions**에 `ANTHROPIC_API_KEY` 시크릿을 등록하세요. Actions 탭에서 `Daily Sector Report` 워크플로우를 수동 실행(`workflow_dispatch`)할 수도 있습니다.
+사용하려면 저장소 **Settings → Secrets and variables → Actions**에 `ANTHROPIC_API_KEY` 시크릿을 등록하세요. Actions 탭에서 `Daily Sector Report` 워크플로우를 수동 실행(`workflow_dispatch`)할 수도 있습니다. Notion 아카이빙까지 하려면 `NOTION_API_KEY` 시크릿도 등록하세요.
+
+> `config.yaml`의 `backend.type`이 `ollama`(로컬 모드)여도 CI는 정상 동작합니다 — 워크플로우가 환경변수로 claude 백엔드를 강제합니다 (아래 참고).
+
+### 환경변수 오버라이드
+
+`config.yaml`은 로컬(맥북) 기준으로 커밋해 두고, 실행 환경별 차이는 환경변수로 처리합니다.
+
+| 환경변수 | 값 | 효과 |
+|---|---|---|
+| `SECTOR_AGENT_BACKEND` | `claude` \| `ollama` | `backend.type` 오버라이드 |
+| `SECTOR_AGENT_ARCHIVE_GIT` | `true` \| `false` | `archive.git` 오버라이드 (CI에서는 워크플로우 커밋 스텝과 중복되지 않도록 `false`) |
 
 ## 비용 참고
 
