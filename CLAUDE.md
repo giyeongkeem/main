@@ -42,7 +42,7 @@ python3 -c "from sector_news_agent.config import load_config; print(load_config(
 
 1. **GitHub Actions** — `.github/workflows/daily-report.yml`, 매일 22:30 UTC(KST 07:30), claude 백엔드 강제, `reports/`에 커밋
 2. **macOS launchd** — `scripts/run_daily.sh`, 매일 KST 07:00, ollama(무료) 백엔드, 로컬 맥북에서 실행
-3. **claude.ai 루틴(저장소 외부)** — "Daily tech investment briefing", 매일 22:00 UTC(KST 07:00), 신규 클로드 세션에서 AI/빅테크 뉴스 브리핑 생성. 이 저장소 코드와 무관하게 별도로 돈다.
+3. **claude.ai 루틴(저장소 외부)** — "Daily tech investment briefing → Notion 아카이브", 매일 22:00 UTC(KST 07:00), 신규 클로드 세션에서 AI/빅테크 뉴스 브리핑을 생성하고 Notion "섹터 리포트 아카이브" DB에 "YYYY-MM-DD 데일리 테크 브리핑" 페이지로 저장. 이 저장소 코드와 무관하게 별도로 돈다.
 
 ## 아카이빙
 
