@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>안부 라이브 콘솔</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --page:#f9f9f7; --surface:#fcfcfb; --surface-2:#f0efec;
+    --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#898781;
+    --line:#e1e0d9; --border:rgba(11,11,11,.10);
+    --accent:#2a78d6; --accent-soft:#cde2fb;
+    --good:#0ca30c; --good-text:#006300; --warning:#fab219; --critical:#d03b3b;
+    --series-1:#2a78d6; --grid:#e1e0d9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page:#0d0d0d; --surface:#1a1a19; --surface-2:#262624;
+      --ink:#fff; --ink-2:#c3c2b7; --ink-3:#898781;
+      --line:#2c2c2a; --border:rgba(255,255,255,.10);
+      --accent:#3987e5; --accent-soft:#104281; --good-text:#0ca30c;
+      --series-1:#3987e5; --grid:#2c2c2a;
+    }
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--page); color:var(--ink); line-height:1.5;
+    font-family:"Pretendard Variable",Pretendard,-apple-system,system-ui,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+  }
+  button { font:inherit; color:inherit; cursor:pointer; }
+  .topbar {
+    position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:16px;
+    justify-content:space-between; padding:12px 22px;
+    background:color-mix(in srgb, var(--page) 88%, transparent);
+    backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
+  }
+  .brand { font-size:20px; font-weight:800; letter-spacing:-.02em; }
+  .brand em { font-style:normal; color:var(--accent); }
+  .brand small { font-size:11px; font-weight:600; color:var(--good-text); margin-left:8px; letter-spacing:.05em; }
+  .controls { display:flex; gap:10px; align-items:center; }
+  .mode-switch { display:flex; padding:3px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border); }
+  .mode-switch button { border:0; background:transparent; border-radius:8px; padding:6px 14px; font-size:13px; font-weight:650; color:var(--ink-2); }
+  .mode-switch button[aria-pressed="true"] { background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.12); }
+  .ghost-btn { border:1px solid var(--border); background:var(--surface); border-radius:8px; padding:6px 12px; font-size:12.5px; font-weight:650; }
+  .ghost-btn:hover { background:var(--surface-2); }
+  main { max-width:1100px; margin:0 auto; padding:26px 22px 60px; }
+  section[hidden] { display:none; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; }
+  .card h3 { margin:0 0 2px; font-size:12px; font-weight:600; color:var(--ink-3); letter-spacing:.06em; }
+  .metric { font-size:26px; font-weight:750; }
+  .metric small { font-size:13px; font-weight:500; color:var(--ink-3); }
+  .dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex:none; }
+
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+  @media (max-width:820px){ .kpis { grid-template-columns:repeat(2,1fr); } }
+  .kpi { position:relative; overflow:hidden; }
+  .kpi .stripe { position:absolute; inset:0 auto 0 0; width:4px; }
+  .kpi .sub { font-size:12px; color:var(--ink-2); }
+
+  .queue-card { padding:0; overflow:hidden; }
+  .queue-card header { display:flex; justify-content:space-between; align-items:center; padding:14px 16px 10px; }
+  .queue-card header h3 { margin:0; font-size:14px; font-weight:750; color:var(--ink); letter-spacing:0; }
+  .queue-card header .hint { font-size:12px; color:var(--ink-3); }
+  .tbl-wrap { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; min-width:660px; font-size:13px; }
+  th { text-align:left; font-size:11px; color:var(--ink-3); font-weight:650; letter-spacing:.05em; padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  td { padding:10px; border-bottom:1px solid var(--line); vertical-align:middle; white-space:nowrap; }
+  tr:last-child td { border-bottom:0; }
+  tr:hover td { background:color-mix(in srgb, var(--surface-2) 55%, transparent); }
+  td .nm { font-weight:700; }
+  td .sub { display:block; font-size:11.5px; color:var(--ink-3); }
+  .risk { display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:12px; }
+  .state-pill { font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:var(--surface-2); }
+  .act { display:flex; gap:6px; }
+  .act button { border:1px solid var(--border); background:var(--surface); border-radius:7px; padding:4px 9px; font-size:12px; font-weight:650; }
+  .act button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .act button:disabled { opacity:.45; cursor:default; }
+  .empty { padding:28px 16px; text-align:center; color:var(--ink-3); font-size:13px; }
+
+  /* guardian */
+  .g-wrap { max-width:420px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  .hero { text-align:center; padding:26px 16px 22px; background:var(--surface); border:1px solid var(--border); border-radius:18px; }
+  .ring { width:92px; height:92px; margin:0 auto 12px; border-radius:50%; display:grid; place-items:center;
+    background:radial-gradient(closest-side, var(--surface) 78%, transparent 79% 100%),
+               conic-gradient(var(--ring-col,var(--good)) 0 86%, var(--surface-2) 86% 100%); }
+  .ring .face { font-size:32px; }
+  .hero .headline { font-size:19px; font-weight:800; }
+  .hero .sub { font-size:13px; color:var(--ink-2); margin-top:3px; }
+  .g-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .g-grid .wide { grid-column:span 2; }
+  .sig { display:flex; gap:10px; padding:9px 2px; border-bottom:1px solid var(--line); font-size:13px; align-items:baseline; }
+  .sig:last-child { border-bottom:0; }
+  .bars { display:flex; align-items:flex-end; gap:6px; height:64px; margin-top:10px; }
+  .bars .b { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:9.5px; color:var(--ink-3); }
+  .bars .b i { width:100%; max-width:18px; border-radius:4px 4px 3px 3px; background:color-mix(in srgb, var(--series-1) 32%, var(--surface)); }
+  .bars .b:last-child i { background:var(--series-1); }
+  .foot { text-align:center; font-size:11.5px; color:var(--ink-3); margin-top:26px; }
+  .toast { position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:var(--ink); color:var(--page);
+    font-size:13px; font-weight:600; padding:9px 16px; border-radius:10px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:50; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">안<em>부</em><small>● LIVE — 실제 API 연결</small></div>
+  <div class="controls">
+    <button class="ghost-btn" onclick="reseed()">데모 데이터 재생성</button>
+    <div class="mode-switch">
+      <button id="btn-console" aria-pressed="true" onclick="setMode('console')">관제센터</button>
+      <button id="btn-guardian" aria-pressed="false" onclick="setMode('guardian')">자녀 앱</button>
+    </div>
+  </div>
+</div>
+
+<main>
+  <section id="view-console">
+    <div class="kpis" id="kpis"></div>
+    <div class="card queue-card">
+      <header>
+        <h3>우선 대응 대기열</h3>
+        <span class="hint" id="q-hint">위험도순 · 15초마다 갱신</span>
+      </header>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>위험도</th><th>대상자</th><th>감지 신호</th><th>단계</th><th>발생</th><th>조치</th></tr></thead>
+          <tbody id="queue"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-guardian" hidden>
+    <div class="g-wrap" id="guardian"></div>
+  </section>
+
+  <div class="foot">시뮬레이션 데이터 · FastAPI <code>/v1</code> 실시간 조회 · <a href="/docs" style="color:var(--accent)">API 문서</a></div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+  // 데모 시드가 현재 시각 기준으로 생성되므로 모든 조회에 같은 now를 쓴다
+  const NOW = new Date();
+  const nowParam = () => `now=${encodeURIComponent(NOW.toISOString().slice(0, 19))}`;
+
+  const $ = id => document.getElementById(id);
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.style.opacity = '1';
+    clearTimeout(t._h); t._h = setTimeout(() => t.style.opacity = '0', 2200);
+  }
+  async function api(path, opts) {
+    const r = await fetch(path, opts);
+    if (!r.ok) throw new Error(`${path} → ${r.status}`);
+    return r.json();
+  }
+
+  function setMode(m) {
+    $('view-console').hidden = m !== 'console';
+    $('view-guardian').hidden = m !== 'guardian';
+    $('btn-console').setAttribute('aria-pressed', String(m === 'console'));
+    $('btn-guardian').setAttribute('aria-pressed', String(m === 'guardian'));
+    refresh();
+  }
+
+  const SEV_COLOR = { '긴급': 'var(--critical)', '주의': 'var(--warning)', '점검': 'var(--ink-3)' };
+
+  async function renderConsole() {
+    const kpi = await api(`/v1/console/kpis?${nowParam()}`);
+    $('kpis').innerHTML = `
+      <div class="card kpi"><span class="stripe" style="background:var(--good)"></span>
+        <h3>오늘 안부 확인</h3><div class="metric">${kpi.confirmed_today}<small>/ ${kpi.total_seniors}명</small></div>
+        <div class="sub">열린 알림 없는 대상자</div></div>
+      <div class="card kpi"><span class="stripe" style="background:var(--warning)"></span>
+        <h3>주의 신호</h3><div class="metric">${kpi.warning}<small>건</small></div>
+        <div class="sub">AI 안부전화 → 복지사 확인</div></div>
+      <div class="card kpi"><span class="stripe" style="background:var(--critical)"></span>
+        <h3>긴급 대응</h3><div class="metric">${kpi.emergency}<small>건</small></div>
+        <div class="sub">즉시 방문 출동</div></div>
+      <div class="card kpi"><span class="stripe" style="background:var(--ink-3)"></span>
+        <h3>기기 점검</h3><div class="metric">${kpi.device_check}<small>건</small></div>
+        <div class="sub">미착용·미충전 추정</div></div>`;
+
+    const { queue } = await api('/v1/console/queue');
+    if (!queue.length) {
+      $('queue').innerHTML = `<tr><td colspan="6"><div class="empty">열린 알림이 없습니다 — 전원 안부 확인 완료 ✅</div></td></tr>`;
+      return;
+    }
+    $('queue').innerHTML = queue.map(q => `
+      <tr>
+        <td><span class="risk"><span class="dot" style="background:${SEV_COLOR[q.severity]}"></span>${q.severity}</span></td>
+        <td><span class="nm">${q.name}</span><span class="sub">${q.age} · ${q.dwelling} · ${q.district}</span></td>
+        <td style="white-space:normal; min-width:180px"><b>${q.message}</b></td>
+        <td><span class="state-pill">${q.state}</span></td>
+        <td class="sub" style="font-size:12px">${q.since.slice(11, 16)}</td>
+        <td><div class="act">
+          <button class="primary" onclick="act(${q.alert_id}, 'resolve', this)">${q.next_action} 완료</button>
+          <button onclick="act(${q.alert_id}, 'escalate', this)" ${q.state === 'EMERGENCY' ? 'disabled' : ''}>상향</button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  async function act(id, action, btn) {
+    btn.disabled = true;
+    try {
+      const r = await api(`/v1/alerts/${id}/action?${nowParam()}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      toast(action === 'resolve' ? '종결 처리했습니다' : `상향 → 다음 조치: ${r.next_action}`);
+      await renderConsole();
+    } catch (e) { toast('처리 실패: ' + e.message); btn.disabled = false; }
+  }
+
+  async function renderGuardian() {
+    const g = await api(`/v1/guardian/s06/today?${nowParam()}`);
+    const ok = !g.signals.length;
+    const worst = g.signals[0];
+    const ringCol = ok ? 'var(--good)' : (worst.severity === '긴급' ? 'var(--critical)' : 'var(--warning)');
+    const face = ok ? '☀️' : '🌥️';
+    const wake = g.today?.wake_time != null
+      ? `${String(Math.floor(g.today.wake_time / 60)).padStart(2, '0')}:${String(g.today.wake_time % 60).padStart(2, '0')} 기상 감지`
+      : '오늘 기상 미감지';
+    const maxSteps = Math.max(...g.week_steps.map(w => w.steps || 0), 1);
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+
+    $('guardian').innerHTML = `
+      <div class="hero" style="--ring-col:${ringCol}">
+        <div class="ring"><div class="face">${face}</div></div>
+        <div class="headline">${g.status_headline}</div>
+        <div class="sub">${g.senior.name} (${g.senior.age}) · ${wake}</div>
+      </div>
+      <div class="g-grid">
+        <div class="card">
+          <h3>오늘 걸음</h3>
+          <div class="metric">${(g.today?.steps ?? 0).toLocaleString('ko-KR')}<small>보</small></div>
+        </div>
+        <div class="card">
+          <h3>워치 상태</h3>
+          <div style="font-size:13px; padding-top:8px">
+            <span class="dot" style="background:var(--good)"></span>
+            마지막 신호 ${g.device.last_ingest ? g.device.last_ingest.slice(11, 16) : '—'}
+          </div>
+        </div>
+        <div class="card wide">
+          <h3>최근 7일 걸음</h3>
+          <div class="bars">${g.week_steps.map(w => `
+            <div class="b"><i style="height:${Math.max(6, (w.steps || 0) / maxSteps * 46)}px"></i>
+            ${dayNames[new Date(w.day).getDay()]}</div>`).join('')}</div>
+        </div>
+        <div class="card wide">
+          <h3>신호</h3>
+          ${ok ? '<div class="sig">✅ 모든 지표가 평소 범위 안입니다. 별도 알림 없이 기록만 남겼어요.</div>'
+               : g.signals.map(s => `<div class="sig"><span class="dot" style="background:${SEV_COLOR[s.severity]}; margin-top:4px"></span><b>${s.message}</b></div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  async function refresh() {
+    try {
+      if (!$('view-console').hidden) await renderConsole();
+      else await renderGuardian();
+    } catch (e) { toast('조회 실패: ' + e.message); }
+  }
+
+  async function reseed() {
+    await api(`/v1/demo/seed?${nowParam()}`, { method: 'POST' });
+    toast('데모 데이터를 다시 생성했습니다');
+    refresh();
+  }
+
+  (async () => {
+    // 첫 방문에 데이터가 없으면 자동 시드
+    const kpi = await api(`/v1/console/kpis?${nowParam()}`);
+    if (kpi.total_seniors === 0) await reseed(); else refresh();
+    setInterval(refresh, 15000);
+  })();
+</script>
+</body>
+</html>

@@ -1,34 +1,69 @@
-"""안부 API — 하나의 감지 엔진, 두 개의 얼굴(B2C 보호자 / B2G 관제)."""
+"""안부 API — 하나의 감지 엔진, 두 개의 얼굴(B2C 보호자 / B2G 관제).
+
+인증(운영 모드 ANBU_REQUIRE_AUTH=1):
+  관제·등록·웹훅  X-API-Key: <org api_key>        (테넌트 스코프)
+  인제스트        Authorization: Bearer <device_token>
+  보호자 조회     X-Guardian-Key: <guardian_key>
+데모 모드(기본)에서는 자격 증명 없이 'demo' 조직으로 동작한다.
+"""
 
 from __future__ import annotations
 
 import json
+import os
 from datetime import date, datetime
+from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import alerts as sm
+from . import auth
 from . import db as store
+from . import demo as demo_seed
+from .adapters import NORMALIZERS
 from .detection import SEVERITY_ORDER, DayRecord, evaluate
+from .ingest import RawSample, apply_samples
 
-app = FastAPI(title="안부 API", version="0.1.0")
-_conn = None
+app = FastAPI(title="안부 API", version="0.2.0")
+
+_conns: dict = {}
 
 
 def conn():
-    global _conn
-    if _conn is None:
-        _conn = store.connect()
-    return _conn
+    path = os.environ.get("ANBU_DB", "anbu.db")
+    if path not in _conns:
+        _conns[path] = store.connect(path)
+    return _conns[path]
 
 
 def _now(now: Optional[datetime] = Query(default=None, description="시뮬레이션용 현재 시각 오버라이드")) -> datetime:
     return now or datetime.now()
 
 
-# ---------- 등록 · 인제스트 ----------
+def _org(x_api_key: Optional[str] = Header(default=None)):
+    return auth.require_org(conn(), x_api_key)
+
+
+# ---------- 조직 · 등록 ----------
+
+class OrgIn(BaseModel):
+    id: str
+    name: str
+
+
+@app.post("/v1/orgs", status_code=201)
+def create_org(body: OrgIn):
+    """신규 테넌트 발급. 운영에서는 별도 어드민 채널로만 노출한다."""
+    try:
+        api_key = store.create_org(conn(), body.id, body.name)
+    except Exception:
+        raise HTTPException(409, "이미 존재하는 조직 ID")
+    return {"ok": True, "id": body.id, "api_key": api_key}
+
 
 class SeniorIn(BaseModel):
     id: str
@@ -39,61 +74,109 @@ class SeniorIn(BaseModel):
     program: Literal["b2c", "b2g"] = "b2c"
 
 
+@app.post("/v1/seniors", status_code=201)
+def register_senior(body: SeniorIn, org=Depends(_org)):
+    creds = store.upsert_senior(conn(), body.id, org["id"], body.name, body.age,
+                                body.dwelling, body.district, body.program)
+    # 토큰은 등록 응답에서 한 번만 노출 — 온보딩 시 기기/보호자 앱에 저장
+    return {"ok": True, "id": body.id, **creds}
+
+
+# ---------- 인제스트 ----------
+
 class Sample(BaseModel):
-    """워치/폰 컴패니언 앱이 올리는 원시 샘플."""
-    type: Literal["steps_day", "wake_time", "night_hr", "motion"]
+    """워치/폰 컴패니언 앱이 올리는 샘플 (집계값 또는 원시값)."""
+    type: Literal["steps_day", "wake_time", "night_hr",
+                  "steps_raw", "heart_rate", "sleep_stage", "motion"]
     ts: datetime
-    value: Optional[float] = None   # motion은 값 없이 ts만 의미가 있다
+    value: Optional[float] = None
+    end_ts: Optional[datetime] = None
 
 
 class IngestIn(BaseModel):
     samples: list[Sample] = Field(min_length=1)
 
 
-@app.post("/v1/seniors", status_code=201)
-def register_senior(body: SeniorIn):
-    store.upsert_senior(conn(), body.id, body.name, body.age, body.dwelling, body.district, body.program)
-    return {"ok": True, "id": body.id}
-
-
 @app.post("/v1/seniors/{sid}/ingest")
-def ingest(sid: str, body: IngestIn, now: datetime = Depends(_now)):
+def ingest(sid: str, body: IngestIn, now: datetime = Depends(_now),
+           authorization: Optional[str] = Header(default=None)):
+    auth.require_device(conn(), sid, authorization)
+    accepted = apply_samples(conn(), sid,
+                             [RawSample(s.type, s.ts, s.value, s.end_ts) for s in body.samples],
+                             now=now)
+    return {"ok": True, "accepted": accepted}
+
+
+class FallIn(BaseModel):
+    ts: datetime
+    confirmed: bool = True
+
+
+@app.post("/v1/seniors/{sid}/fall", status_code=201)
+def report_fall(sid: str, body: FallIn, now: datetime = Depends(_now),
+                authorization: Optional[str] = Header(default=None)):
+    """워치 낙상 감지 전용 채널 — 인제스트 파이프라인을 우회해 즉시 알림을 만든다."""
+    auth.require_device(conn(), sid, authorization)
     c = conn()
-    if not c.execute("SELECT 1 FROM seniors WHERE id=?", (sid,)).fetchone():
-        raise HTTPException(404, "등록되지 않은 대상자")
-    latest_motion = None
-    for s in body.samples:
-        if s.type == "motion":
-            latest_motion = max(latest_motion, s.ts) if latest_motion else s.ts
-        elif s.type == "steps_day":
-            store.upsert_day(c, sid, s.ts.date(), steps=int(s.value or 0))
-        elif s.type == "wake_time":
-            store.upsert_day(c, sid, s.ts.date(), wake_time=int(s.value or 0))
-        elif s.type == "night_hr":
-            store.upsert_day(c, sid, s.ts.date(), night_hr=float(s.value or 0))
-    store.touch_device(c, sid, ingest_at=now, motion_at=latest_motion)
-    return {"ok": True, "accepted": len(body.samples)}
+    severity = "긴급" if body.confirmed else "주의"
+    existing = store.open_alert(c, sid, "fall")
+    message = f"낙상 감지 ({body.ts.strftime('%H:%M')}) · " + ("본인 확인/무응답" if body.confirmed else "오탐 가능")
+    if existing:
+        store.update_alert(c, existing["id"], now, message=message)
+        return {"ok": True, "alert_id": existing["id"], "state": existing["state"]}
+    state = sm.initial_state(severity)
+    alert_id = store.create_alert(c, sid, "fall", severity, message, state,
+                                  {"confirmed": body.confirmed, "ts": body.ts.isoformat()}, now)
+    return {"ok": True, "alert_id": alert_id, "state": state}
+
+
+@app.post("/v1/adapters/{vendor}/{sid}")
+def vendor_webhook(vendor: str, sid: str, payload: dict,
+                   now: datetime = Depends(_now), org=Depends(_org)):
+    """핏빗/삼성헬스 서버-투-서버 동기화. 조직 키로 인증한다."""
+    normalize = NORMALIZERS.get(vendor)
+    if normalize is None:
+        raise HTTPException(404, f"지원하지 않는 벤더: {vendor} (지원: {', '.join(NORMALIZERS)})")
+    senior = conn().execute("SELECT * FROM seniors WHERE id=? AND org_id=?", (sid, org["id"])).fetchone()
+    if senior is None:
+        raise HTTPException(404, "이 조직에 등록되지 않은 대상자")
+    samples = normalize(payload)
+    accepted = apply_samples(conn(), sid, samples, now=now)
+    return {"ok": True, "normalized": len(samples), "accepted": accepted}
 
 
 # ---------- 감지 실행 ----------
 
+def _effective_night_hr(row) -> Optional[float]:
+    if row["night_hr"] is not None:
+        return row["night_hr"]
+    if row["night_hr_n"]:
+        return row["night_hr_sum"] / row["night_hr_n"]
+    return None
+
+
 def _load_days(c, sid: str) -> list[DayRecord]:
     rows = c.execute("SELECT * FROM days WHERE senior_id=? ORDER BY day", (sid,)).fetchall()
     return [DayRecord(day=date.fromisoformat(r["day"]), steps=r["steps"],
-                      wake_time=r["wake_time"], night_hr=r["night_hr"]) for r in rows]
+                      wake_time=r["wake_time"], night_hr=_effective_night_hr(r)) for r in rows]
+
+
+def _signals_for(c, sid: str, now: datetime):
+    dev = c.execute("SELECT * FROM device_state WHERE senior_id=?", (sid,)).fetchone()
+    last_motion = datetime.fromisoformat(dev["last_motion"]) if dev and dev["last_motion"] else None
+    last_ingest = datetime.fromisoformat(dev["last_ingest"]) if dev and dev["last_ingest"] else None
+    return evaluate(_load_days(c, sid), last_motion, last_ingest, now), last_motion, last_ingest
 
 
 @app.post("/v1/console/recompute")
-def recompute(now: datetime = Depends(_now)):
-    """전체 대상자 감지 재실행. 신호별로 열린 알림이 없으면 생성, 있으면 갱신."""
+def recompute(now: datetime = Depends(_now), org=Depends(_org)):
+    """조직 대상자 전체 감지 재실행. 운영에서는 스케줄러가 10분 주기로 호출."""
     c = conn()
     created, refreshed = 0, 0
-    for r in c.execute("SELECT id FROM seniors").fetchall():
+    for r in c.execute("SELECT id FROM seniors WHERE org_id=?", (org["id"],)).fetchall():
         sid = r["id"]
-        dev = c.execute("SELECT * FROM device_state WHERE senior_id=?", (sid,)).fetchone()
-        last_motion = datetime.fromisoformat(dev["last_motion"]) if dev and dev["last_motion"] else None
-        last_ingest = datetime.fromisoformat(dev["last_ingest"]) if dev and dev["last_ingest"] else None
-        for sig in evaluate(_load_days(c, sid), last_motion, last_ingest, now):
+        signals, _, _ = _signals_for(c, sid, now)
+        for sig in signals:
             existing = store.open_alert(c, sid, sig.kind)
             if existing:
                 store.update_alert(c, existing["id"], now, message=sig.message, evidence=sig.evidence)
@@ -108,12 +191,12 @@ def recompute(now: datetime = Depends(_now)):
 # ---------- B2G: 관제 콘솔 ----------
 
 @app.get("/v1/console/queue")
-def console_queue():
+def console_queue(org=Depends(_org)):
     c = conn()
     rows = c.execute(
         "SELECT a.*, s.name, s.age, s.dwelling, s.district FROM alerts a "
-        "JOIN seniors s ON s.id = a.senior_id WHERE a.state != 'RESOLVED'"
-    ).fetchall()
+        "JOIN seniors s ON s.id = a.senior_id WHERE a.state != 'RESOLVED' AND s.org_id=?",
+        (org["id"],)).fetchall()
     items = [{
         "alert_id": r["id"], "senior_id": r["senior_id"],
         "name": r["name"], "age": r["age"], "dwelling": r["dwelling"], "district": r["district"],
@@ -126,15 +209,19 @@ def console_queue():
 
 
 @app.get("/v1/console/kpis")
-def console_kpis(now: datetime = Depends(_now)):
+def console_kpis(now: datetime = Depends(_now), org=Depends(_org)):
     c = conn()
-    total = c.execute("SELECT COUNT(*) n FROM seniors").fetchone()["n"]
-    open_rows = c.execute("SELECT severity, COUNT(*) n FROM alerts WHERE state != 'RESOLVED' GROUP BY severity").fetchall()
+    total = c.execute("SELECT COUNT(*) n FROM seniors WHERE org_id=?", (org["id"],)).fetchone()["n"]
+    open_rows = c.execute(
+        "SELECT a.severity, COUNT(*) n FROM alerts a JOIN seniors s ON s.id=a.senior_id "
+        "WHERE a.state != 'RESOLVED' AND s.org_id=? GROUP BY a.severity", (org["id"],)).fetchall()
     by_sev = {r["severity"]: r["n"] for r in open_rows}
-    flagged = c.execute("SELECT COUNT(DISTINCT senior_id) n FROM alerts WHERE state != 'RESOLVED'").fetchone()["n"]
+    flagged = c.execute(
+        "SELECT COUNT(DISTINCT a.senior_id) n FROM alerts a JOIN seniors s ON s.id=a.senior_id "
+        "WHERE a.state != 'RESOLVED' AND s.org_id=?", (org["id"],)).fetchone()["n"]
     return {
         "total_seniors": total,
-        "confirmed_today": total - flagged,   # 열린 알림이 없으면 정상 신호로 확인된 것
+        "confirmed_today": total - flagged,
         "warning": by_sev.get("주의", 0),
         "emergency": by_sev.get("긴급", 0),
         "device_check": by_sev.get("점검", 0),
@@ -148,9 +235,22 @@ class ActionIn(BaseModel):
 
 
 @app.post("/v1/alerts/{alert_id}/action")
-def alert_action(alert_id: int, body: ActionIn, now: datetime = Depends(_now)):
+def alert_action(alert_id: int, body: ActionIn, now: datetime = Depends(_now),
+                 x_api_key: Optional[str] = Header(default=None),
+                 authorization: Optional[str] = Header(default=None)):
+    """조치: 관제(조직 키) 또는 본인 워치(디바이스 토큰, '괜찮아요'/'도움 필요' 응답)."""
     c = conn()
-    row = c.execute("SELECT * FROM alerts WHERE id=?", (alert_id,)).fetchone()
+    if authorization and authorization.startswith("Bearer ") and not x_api_key:
+        senior = store.senior_by_token(c, authorization.removeprefix("Bearer "))
+        if senior is None:
+            raise HTTPException(401, "디바이스 토큰 불일치")
+        row = c.execute("SELECT * FROM alerts WHERE id=? AND senior_id=?",
+                        (alert_id, senior["id"])).fetchone()
+    else:
+        org = auth.require_org(c, x_api_key)
+        row = c.execute(
+            "SELECT a.* FROM alerts a JOIN seniors s ON s.id=a.senior_id WHERE a.id=? AND s.org_id=?",
+            (alert_id, org["id"])).fetchone()
     if not row:
         raise HTTPException(404, "알림 없음")
     try:
@@ -164,17 +264,13 @@ def alert_action(alert_id: int, body: ActionIn, now: datetime = Depends(_now)):
 # ---------- B2C: 보호자 뷰 ----------
 
 @app.get("/v1/guardian/{sid}/today")
-def guardian_today(sid: str, now: datetime = Depends(_now)):
+def guardian_today(sid: str, now: datetime = Depends(_now),
+                   x_guardian_key: Optional[str] = Header(default=None)):
     """자녀 앱 홈 화면 한 방 조회 — '평소와 같은가'가 첫 번째 답이다."""
     c = conn()
-    senior = c.execute("SELECT * FROM seniors WHERE id=?", (sid,)).fetchone()
-    if not senior:
-        raise HTTPException(404, "등록되지 않은 대상자")
+    senior = auth.require_guardian(c, sid, x_guardian_key)
     days = _load_days(c, sid)
-    dev = c.execute("SELECT * FROM device_state WHERE senior_id=?", (sid,)).fetchone()
-    last_motion = datetime.fromisoformat(dev["last_motion"]) if dev and dev["last_motion"] else None
-    last_ingest = datetime.fromisoformat(dev["last_ingest"]) if dev and dev["last_ingest"] else None
-    signals = evaluate(days, last_motion, last_ingest, now)
+    signals, last_motion, last_ingest = _signals_for(c, sid, now)
 
     today = next((d for d in days if d.day == now.date()), None)
     week = [d for d in days if d.day < now.date()][-7:]
@@ -197,3 +293,23 @@ def guardian_today(sid: str, now: datetime = Depends(_now)):
         "device": {"last_motion": last_motion and last_motion.isoformat(),
                    "last_ingest": last_ingest and last_ingest.isoformat()},
     }
+
+
+# ---------- 데모 · 라이브 대시보드 ----------
+
+@app.post("/v1/demo/seed")
+def demo_reseed(now: datetime = Depends(_now), org=Depends(_org)):
+    """데모 데이터 재생성 + 감지 실행. 라이브 대시보드의 '재생성' 버튼용."""
+    result = demo_seed.seed(conn(), now, org_id=org["id"])
+    recompute_result = recompute(now=now, org=org)
+    return {**result, "alerts_created": recompute_result["created"]}
+
+
+@app.get("/")
+def root():
+    return RedirectResponse("/app/")
+
+
+_web = Path(__file__).parent / "web"
+if _web.is_dir():
+    app.mount("/app", StaticFiles(directory=_web, html=True), name="web")
