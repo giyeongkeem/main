@@ -1,5 +1,5 @@
 /* 어디주차 — 오프라인 캐시 서비스 워커 */
-const CACHE = "parking-tracker-v1";
+const CACHE = "parking-tracker-v2";
 const ASSETS = ["./", "./index.html", "./manifest.json"];
 
 self.addEventListener("install", (e) => {
@@ -19,6 +19,7 @@ self.addEventListener("activate", (e) => {
 // 네트워크 우선, 실패 시 캐시 (오프라인 지하주차장에서도 동작)
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  if (new URL(e.request.url).origin !== self.location.origin) return; // 외부(지오코딩/CDN)는 캐시 제외
   e.respondWith(
     fetch(e.request)
       .then((res) => {

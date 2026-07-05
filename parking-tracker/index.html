@@ -105,6 +105,11 @@ header h1 .logo {
 .field input:focus, .field textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
 .field textarea { resize: none; height: 68px; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.autoloc {
+  font-size: 12.5px; color: var(--sub); margin-bottom: 10px; line-height: 1.5;
+  padding: 9px 12px; border-radius: 9px; background: var(--bg);
+}
+.autoloc.ok { color: var(--green); background: var(--green-soft); }
 
 /* ---- 부가 기능 버튼 ---- */
 .extras { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -222,6 +227,7 @@ header h1 .logo {
 
     <div class="card">
       <h2>위치 상세</h2>
+      <div class="autoloc" id="autoLoc">📍 현재 위치 자동 감지 대기 중</div>
       <div class="row2">
         <div class="field">
           <label for="zone">구역 / 기둥 번호</label>
@@ -361,24 +367,130 @@ $("photoInput").addEventListener("change", (e) => {
     pv.style.display = "block";
     $("btnPhoto").classList.add("done");
     $("photoLabel").textContent = "사진 첨부됨";
+    ocrPhoto(photoData); // 사진에서 층수/구역 자동 인식
   };
   img.onerror = () => { URL.revokeObjectURL(url); toast("사진을 불러오지 못했어요"); };
   img.src = url;
 });
 
-/* ---------------- GPS ---------------- */
+/* ---------------- 사진 OCR: 층수/구역 자동 인식 ----------------
+   기둥 표지판 사진에서 "B3", "3F", "C-14" 같은 표기를 문자 인식으로 추출.
+   오프라인이거나 인식 실패 시 조용히 넘어감(수동 입력 유지). */
+let tesseractPromise = null;
+function loadTesseract() {
+  if (!tesseractPromise) {
+    tesseractPromise = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+      s.onload = () => resolve(window.Tesseract);
+      s.onerror = () => { tesseractPromise = null; reject(new Error("tesseract load fail")); };
+      document.head.appendChild(s);
+    });
+  }
+  return tesseractPromise;
+}
+
+// 텍스트에서 층수(음수=지하)와 구역 표기를 추출
+function parseParkingText(text) {
+  const t = String(text).toUpperCase();
+  let f = null, zone = null;
+  const mB = t.match(/(?:^|[^A-Z0-9])B\s?(\d{1,2})(?![0-9])/);   // B3, B 2
+  const mF = t.match(/(?:^|[^A-Z0-9])(\d{1,2})\s?F(?![A-Z])/);    // 3F
+  if (mB) f = -parseInt(mB[1], 10);
+  else if (mF) f = parseInt(mF[1], 10);
+  const zoneRe = /(?:^|[^A-Z0-9])([A-Z]{1,2})\s?-\s?(\d{1,3})(?![0-9])/g; // C-14 (하이픈 필수)
+  let m;
+  while ((m = zoneRe.exec(t)) !== null) {
+    // "B-3"이 층수로 이미 잡힌 값과 같으면 구역이 아니라 층 표기로 간주
+    if (m[1] === "B" && f !== null && parseInt(m[2], 10) === -f) continue;
+    zone = `${m[1]}-${m[2]}`;
+    break;
+  }
+  return { floor: f, zone };
+}
+
+async function ocrPhoto(dataUrl) {
+  if (!navigator.onLine) return;
+  $("photoLabel").textContent = "사진에서 위치 인식 중…";
+  try {
+    const T = await loadTesseract();
+    const { data } = await T.recognize(dataUrl, "eng");
+    const found = parseParkingText(data.text || "");
+    const applied = [];
+    if (found.floor !== null) {
+      floor = Math.max(-10, Math.min(20, found.floor));
+      renderFloor();
+      applied.push(floorText(floor));
+    }
+    if (found.zone && !$("zone").value.trim()) {
+      $("zone").value = found.zone;
+      applied.push(found.zone);
+    }
+    if (applied.length) toast(`사진에서 자동 인식: ${applied.join(" · ")} ✨`);
+  } catch { /* 인식 실패는 무시 — 수동 입력으로 진행 */ }
+  finally {
+    if (photoData) $("photoLabel").textContent = "사진 첨부됨";
+  }
+}
+
+/* ---------------- GPS + 건물 이름 자동 감지 ---------------- */
+function setGpsState(pos) {
+  gps = {
+    lat: +pos.coords.latitude.toFixed(6),
+    lng: +pos.coords.longitude.toFixed(6),
+    accuracy: Math.round(pos.coords.accuracy)
+  };
+  $("btnGps").classList.add("done");
+  $("gpsLabel").textContent = `GPS 저장됨 (±${gps.accuracy}m)`;
+}
+
+// 역지오코딩(OpenStreetMap Nominatim, 키 불필요)으로 건물/장소 이름 조회
+async function reverseGeocode(lat, lng) {
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&accept-language=ko`;
+  const res = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!res.ok) throw new Error("geocode fail");
+  const j = await res.json();
+  const a = j.address || {};
+  const name = j.name || a.building || a.amenity || a.shop || a.leisure || "";
+  const addr = [a.city || a.county, a.borough || a.suburb || a.town, a.road].filter(Boolean).join(" ");
+  return { name, addr };
+}
+
+let autoLocStarted = false;
+function autoDetectLocation() {
+  if (autoLocStarted) return;
+  const status = $("autoLoc");
+  if (!navigator.geolocation) { status.textContent = "이 기기는 위치 감지를 지원하지 않아요"; return; }
+  autoLocStarted = true;
+  status.textContent = "📍 현재 위치 자동 감지 중…";
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      setGpsState(pos);
+      status.textContent = `📍 GPS 저장됨 (±${gps.accuracy}m) · 주소 확인 중…`;
+      try {
+        const { name, addr } = await reverseGeocode(gps.lat, gps.lng);
+        if (name && !$("building").value.trim()) $("building").value = name;
+        status.textContent = `✅ ${[name, addr].filter(Boolean).join(" · ") || "위치 감지됨"}`;
+        status.classList.add("ok");
+      } catch {
+        status.textContent = `✅ GPS 저장됨 (±${gps.accuracy}m) — 주소 조회 실패 (오프라인?)`;
+        status.classList.add("ok");
+      }
+    },
+    () => {
+      autoLocStarted = false; // 권한 허용 후 재시도 가능하게
+      status.textContent = "위치 권한이 없어 자동 감지를 건너뛰었어요. 아래 GPS 버튼으로 다시 시도할 수 있어요.";
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+  );
+}
+
 $("btnGps").addEventListener("click", () => {
   if (!navigator.geolocation) { toast("이 기기는 GPS를 지원하지 않아요"); return; }
   $("gpsLabel").textContent = "위치 확인 중…";
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      gps = {
-        lat: +pos.coords.latitude.toFixed(6),
-        lng: +pos.coords.longitude.toFixed(6),
-        accuracy: Math.round(pos.coords.accuracy)
-      };
-      $("btnGps").classList.add("done");
-      $("gpsLabel").textContent = `GPS 저장됨 (±${gps.accuracy}m)`;
+      setGpsState(pos);
       if (navigator.vibrate) navigator.vibrate(8);
     },
     () => {
@@ -390,7 +502,7 @@ $("btnGps").addEventListener("click", () => {
 });
 
 /* ---------------- 저장 ---------------- */
-$("btnSave").addEventListener("click", () => {
+function saveRecord() {
   const record = {
     id: Date.now(),
     ts: Date.now(),
@@ -424,7 +536,8 @@ $("btnSave").addEventListener("click", () => {
 
   toast("주차 위치를 저장했어요 🅿️");
   switchTab("current");
-});
+}
+$("btnSave").addEventListener("click", saveRecord);
 
 function pushHistory(rec) {
   const hist = loadJSON(LS_HISTORY, []);
@@ -557,12 +670,39 @@ function switchTab(name) {
   if (name === "current") renderCurrent();
   if (name === "history") renderHistory();
 }
-$("tabRecord").addEventListener("click", () => switchTab("record"));
+$("tabRecord").addEventListener("click", () => { switchTab("record"); autoDetectLocation(); });
 $("tabCurrent").addEventListener("click", () => switchTab("current"));
 $("tabHistory").addEventListener("click", () => switchTab("history"));
 
-// 주차 중이면 "내 차 위치"를 첫 화면으로
-if (loadJSON(LS_CURRENT, null)) switchTab("current");
+/* ---------------- 빠른저장 모드 (?quick) ----------------
+   차량 블루투스 해제 시 iOS 단축어/안드로이드 자동화로 이 URL을 열면
+   GPS + 건물 이름을 자동으로 채워 즉시 저장 → 사실상 자동 기록. */
+async function quickSave() {
+  toast("빠른저장: 위치 확인 중…");
+  const finish = () => { saveRecord(); toast("빠른저장 완료 🅿️ 층수를 확인해 주세요"); };
+  if (!navigator.geolocation) { finish(); return; }
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      setGpsState(pos);
+      try {
+        const { name } = await reverseGeocode(gps.lat, gps.lng);
+        if (name && !$("building").value.trim()) $("building").value = name;
+      } catch {}
+      finish();
+    },
+    () => finish(),
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
+}
+
+if (new URLSearchParams(location.search).has("quick")) {
+  quickSave();
+} else if (loadJSON(LS_CURRENT, null)) {
+  // 주차 중이면 "내 차 위치"를 첫 화면으로
+  switchTab("current");
+} else {
+  autoDetectLocation();
+}
 
 /* ---------------- 서비스 워커 (오프라인 지원) ---------------- */
 if ("serviceWorker" in navigator && location.protocol === "https:") {
