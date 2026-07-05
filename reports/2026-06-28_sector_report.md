@@ -1,3 +1,11 @@
+---
+date: 2026-06-28
+type: sector-report
+sectors: [반도체, 2차전지, 바이오/제약, AI/빅테크, 미국 반도체]
+tags: [투자리포트]
+backend: claude-session
+---
+
 # 데일리 섹터 리포트 — 2026-06-28 (Sat)
 
 > Claude가 직접 웹 검색해 작성한 리포트입니다. 정보 제공 목적이며 투자 권유가 아닙니다.
