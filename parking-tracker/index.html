@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a73e8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>어디주차 — 주차 위치 기록</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231a73e8'/%3E%3Ctext x='50' y='72' font-size='62' font-weight='bold' font-family='sans-serif' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f4f6fa;
+  --card: #ffffff;
+  --text: #1c1e26;
+  --sub: #6b7280;
+  --accent: #1a73e8;
+  --accent-soft: #e8f0fe;
+  --danger: #e5484d;
+  --danger-soft: #fdebec;
+  --green: #1a9e5c;
+  --green-soft: #e5f6ed;
+  --border: #e3e7ee;
+  --shadow: 0 2px 10px rgba(20, 30, 60, .07);
+  --radius: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12141a;
+    --card: #1d2027;
+    --text: #eceef2;
+    --sub: #9aa1ad;
+    --accent: #5c9bff;
+    --accent-soft: #1e2c44;
+    --danger: #ff6369;
+    --danger-soft: #3a2225;
+    --green: #3ecf8e;
+    --green-soft: #17332a;
+    --border: #2b2f38;
+    --shadow: 0 2px 10px rgba(0, 0, 0, .35);
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+header h1 { font-size: 22px; font-weight: 800; letter-spacing: -.5px; display: flex; align-items: center; gap: 8px; }
+header h1 .logo {
+  width: 30px; height: 30px; border-radius: 9px; background: var(--accent);
+  color: #fff; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800;
+}
+.tabs { display: flex; background: var(--card); border-radius: 12px; padding: 4px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.tabs button {
+  flex: 1; border: 0; background: transparent; padding: 10px 0; border-radius: 9px;
+  font-size: 14px; font-weight: 700; color: var(--sub); cursor: pointer; font-family: inherit;
+}
+.tabs button.active { background: var(--accent); color: #fff; }
+.card {
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 18px; margin-bottom: 14px; border: 1px solid var(--border);
+}
+.card h2 { font-size: 13px; font-weight: 700; color: var(--sub); margin-bottom: 12px; letter-spacing: .3px; }
+
+/* ---- 층수 선택 ---- */
+.floor-display {
+  text-align: center; margin-bottom: 14px;
+}
+.floor-display .value {
+  font-size: 56px; font-weight: 900; letter-spacing: -1px; line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.floor-display .value.basement { color: var(--danger); }
+.floor-display .value.ground { color: var(--green); }
+.floor-display .label { font-size: 13px; color: var(--sub); margin-top: 2px; }
+.floor-stepper { display: flex; gap: 10px; }
+.floor-stepper button {
+  flex: 1; padding: 16px 0; font-size: 24px; font-weight: 800; border: 0;
+  border-radius: 12px; cursor: pointer; font-family: inherit;
+  background: var(--accent-soft); color: var(--accent);
+}
+.floor-stepper button:active { transform: scale(.97); }
+.floor-quick { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 10px; }
+.floor-quick button {
+  padding: 9px 0; border: 1px solid var(--border); background: var(--card);
+  border-radius: 9px; font-size: 13px; font-weight: 700; color: var(--text);
+  cursor: pointer; font-family: inherit;
+}
+.floor-quick button.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ---- 입력 ---- */
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 12px; font-weight: 700; color: var(--sub); margin-bottom: 6px; }
+.field input, .field textarea {
+  width: 100%; padding: 13px 14px; font-size: 16px; border: 1px solid var(--border);
+  border-radius: 11px; background: var(--bg); color: var(--text); font-family: inherit;
+}
+.field input:focus, .field textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.field textarea { resize: none; height: 68px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ---- 부가 기능 버튼 ---- */
+.extras { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.extras .ex-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 13px 0; border: 1px dashed var(--border); border-radius: 11px;
+  background: transparent; color: var(--sub); font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+}
+.extras .ex-btn.done { border-style: solid; border-color: var(--green); color: var(--green); background: var(--green-soft); }
+#photoPreview { width: 100%; border-radius: 11px; margin-top: 10px; display: none; }
+
+/* ---- 저장 버튼 ---- */
+.save-btn {
+  width: 100%; padding: 17px 0; font-size: 17px; font-weight: 800; border: 0;
+  border-radius: 14px; background: var(--accent); color: #fff; cursor: pointer;
+  font-family: inherit; box-shadow: 0 4px 14px rgba(26, 115, 232, .35);
+}
+.save-btn:active { transform: scale(.98); }
+
+/* ---- 현재 주차 카드 ---- */
+.current-hero {
+  background: linear-gradient(135deg, var(--accent), #5b3df5);
+  color: #fff; border: 0;
+}
+.current-hero h2 { color: rgba(255,255,255,.75); }
+.current-hero .big-floor { font-size: 46px; font-weight: 900; letter-spacing: -1px; }
+.current-hero .spot { font-size: 19px; font-weight: 700; margin-top: 2px; opacity: .95; }
+.current-hero .meta { font-size: 13px; opacity: .8; margin-top: 8px; line-height: 1.6; }
+.current-hero .elapsed {
+  display: inline-block; margin-top: 10px; padding: 6px 12px; border-radius: 999px;
+  background: rgba(255,255,255,.18); font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.current-hero img { width: 100%; border-radius: 11px; margin-top: 12px; }
+.hero-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.hero-actions button, .hero-actions a {
+  padding: 12px 0; border: 0; border-radius: 11px; font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: inherit; text-align: center; text-decoration: none;
+  background: rgba(255,255,255,.16); color: #fff;
+}
+.done-btn {
+  width: 100%; margin-top: 10px; padding: 14px 0; font-size: 15px; font-weight: 800;
+  border: 0; border-radius: 11px; background: #fff; color: var(--accent);
+  cursor: pointer; font-family: inherit;
+}
+.empty {
+  text-align: center; padding: 46px 20px; color: var(--sub);
+}
+.empty .icon { font-size: 44px; margin-bottom: 10px; }
+.empty p { font-size: 14px; line-height: 1.6; }
+
+/* ---- 히스토리 ---- */
+.hist-item {
+  display: flex; align-items: center; gap: 13px; padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.hist-item:last-child { border-bottom: 0; }
+.hist-floor {
+  min-width: 52px; height: 52px; border-radius: 13px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; font-weight: 800; font-size: 16px;
+  background: var(--accent-soft); color: var(--accent); flex-shrink: 0;
+}
+.hist-floor.basement { background: var(--danger-soft); color: var(--danger); }
+.hist-info { flex: 1; min-width: 0; }
+.hist-info .t1 { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-info .t2 { font-size: 12.5px; color: var(--sub); margin-top: 3px; }
+.hist-del {
+  border: 0; background: transparent; color: var(--sub); font-size: 18px;
+  cursor: pointer; padding: 8px; font-family: inherit;
+}
+.hist-clear {
+  width: 100%; margin-top: 6px; padding: 12px 0; border: 1px solid var(--border);
+  background: transparent; color: var(--danger); border-radius: 11px;
+  font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+
+/* ---- 토스트 ---- */
+#toast {
+  position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%) translateY(20px);
+  background: var(--text); color: var(--bg); padding: 12px 22px; border-radius: 999px;
+  font-size: 14px; font-weight: 700; opacity: 0; pointer-events: none;
+  transition: all .25s ease; z-index: 99; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="logo">P</span>어디주차</h1>
+  </header>
+
+  <div class="tabs">
+    <button id="tabRecord" class="active">기록하기</button>
+    <button id="tabCurrent">내 차 위치</button>
+    <button id="tabHistory">기록</button>
+  </div>
+
+  <!-- ============ 기록하기 ============ -->
+  <section id="viewRecord">
+    <div class="card">
+      <h2>층수 (지하는 B로 표시)</h2>
+      <div class="floor-display">
+        <div class="value" id="floorValue">B2</div>
+        <div class="label" id="floorLabel">지하 2층</div>
+      </div>
+      <div class="floor-stepper">
+        <button id="floorDown" aria-label="한 층 내려가기">▼</button>
+        <button id="floorUp" aria-label="한 층 올라가기">▲</button>
+      </div>
+      <div class="floor-quick" id="floorQuick"></div>
+    </div>
+
+    <div class="card">
+      <h2>위치 상세</h2>
+      <div class="row2">
+        <div class="field">
+          <label for="zone">구역 / 기둥 번호</label>
+          <input id="zone" type="text" placeholder="예: C-14, 나-7" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="building">건물 / 주차장 이름</label>
+          <input id="building" type="text" placeholder="예: 롯데몰, 회사" autocomplete="off">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label for="memo">메모</label>
+        <textarea id="memo" placeholder="예: 엘리베이터 B 근처, 파란 기둥 옆"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>추가 정보 (선택)</h2>
+      <div class="extras">
+        <button class="ex-btn" id="btnPhoto">📷 <span id="photoLabel">사진 찍기</span></button>
+        <button class="ex-btn" id="btnGps">📍 <span id="gpsLabel">GPS 저장</span></button>
+      </div>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+      <img id="photoPreview" alt="주차 위치 사진">
+    </div>
+
+    <button class="save-btn" id="btnSave">🅿️ 주차 위치 저장</button>
+  </section>
+
+  <!-- ============ 내 차 위치 ============ -->
+  <section id="viewCurrent" class="hidden"></section>
+
+  <!-- ============ 기록 ============ -->
+  <section id="viewHistory" class="hidden"></section>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------------- 상태 ---------------- */
+const LS_CURRENT = "parking.current.v1";
+const LS_HISTORY = "parking.history.v1";
+const LS_FLOOR   = "parking.lastFloor.v1";
+
+// floor: 정수. 음수 = 지하 (예: -2 → B2), 양수 = 지상 (예: 3 → 3F). 0은 없음.
+let floor = parseInt(localStorage.getItem(LS_FLOOR) || "-2", 10) || -2;
+let photoData = null;   // dataURL
+let gps = null;         // {lat, lng, accuracy}
+let elapsedTimer = null;
+
+const $ = (id) => document.getElementById(id);
+
+/* ---------------- 유틸 ---------------- */
+function floorText(f) { return f < 0 ? "B" + (-f) : f + "F"; }
+function floorKorean(f) { return f < 0 ? `지하 ${-f}층` : `지상 ${f}층`; }
+function pad(n) { return String(n).padStart(2, "0"); }
+function fmtDate(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fmtElapsed(ms) {
+  const m = Math.floor(ms / 60000);
+  const h = Math.floor(m / 60);
+  const d = Math.floor(h / 24);
+  if (d > 0) return `${d}일 ${h % 24}시간 경과`;
+  if (h > 0) return `${h}시간 ${m % 60}분 경과`;
+  return `${m}분 경과`;
+}
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function loadJSON(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+  catch { return fallback; }
+}
+
+/* ---------------- 층수 UI ---------------- */
+const QUICK_FLOORS = [-5, -4, -3, -2, -1, 1];
+
+function renderFloor() {
+  const v = $("floorValue");
+  v.textContent = floorText(floor);
+  v.className = "value " + (floor < 0 ? "basement" : "ground");
+  $("floorLabel").textContent = floorKorean(floor);
+  document.querySelectorAll("#floorQuick button").forEach(b => {
+    b.classList.toggle("sel", parseInt(b.dataset.f, 10) === floor);
+  });
+  localStorage.setItem(LS_FLOOR, String(floor));
+}
+function stepFloor(delta) {
+  let next = floor + delta;
+  if (next === 0) next = delta > 0 ? 1 : -1; // 0층 건너뜀
+  floor = Math.max(-10, Math.min(20, next));
+  renderFloor();
+  if (navigator.vibrate) navigator.vibrate(8);
+}
+$("floorUp").addEventListener("click", () => stepFloor(1));
+$("floorDown").addEventListener("click", () => stepFloor(-1));
+
+QUICK_FLOORS.forEach(f => {
+  const b = document.createElement("button");
+  b.textContent = floorText(f);
+  b.dataset.f = f;
+  b.addEventListener("click", () => { floor = f; renderFloor(); });
+  $("floorQuick").appendChild(b);
+});
+renderFloor();
+
+/* ---------------- 사진 ---------------- */
+$("btnPhoto").addEventListener("click", () => $("photoInput").click());
+$("photoInput").addEventListener("change", (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    // 저장 용량을 위해 최대 900px로 축소 후 JPEG 압축
+    const MAX = 900;
+    const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    photoData = canvas.toDataURL("image/jpeg", 0.72);
+    URL.revokeObjectURL(url);
+    const pv = $("photoPreview");
+    pv.src = photoData;
+    pv.style.display = "block";
+    $("btnPhoto").classList.add("done");
+    $("photoLabel").textContent = "사진 첨부됨";
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); toast("사진을 불러오지 못했어요"); };
+  img.src = url;
+});
+
+/* ---------------- GPS ---------------- */
+$("btnGps").addEventListener("click", () => {
+  if (!navigator.geolocation) { toast("이 기기는 GPS를 지원하지 않아요"); return; }
+  $("gpsLabel").textContent = "위치 확인 중…";
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      gps = {
+        lat: +pos.coords.latitude.toFixed(6),
+        lng: +pos.coords.longitude.toFixed(6),
+        accuracy: Math.round(pos.coords.accuracy)
+      };
+      $("btnGps").classList.add("done");
+      $("gpsLabel").textContent = `GPS 저장됨 (±${gps.accuracy}m)`;
+      if (navigator.vibrate) navigator.vibrate(8);
+    },
+    () => {
+      $("gpsLabel").textContent = "GPS 저장";
+      toast("위치 권한을 확인해 주세요");
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+  );
+});
+
+/* ---------------- 저장 ---------------- */
+$("btnSave").addEventListener("click", () => {
+  const record = {
+    id: Date.now(),
+    ts: Date.now(),
+    floor,
+    zone: $("zone").value.trim(),
+    building: $("building").value.trim(),
+    memo: $("memo").value.trim(),
+    photo: photoData,
+    gps
+  };
+
+  // 기존 주차 중이던 기록은 히스토리로 이동
+  const prev = loadJSON(LS_CURRENT, null);
+  if (prev) pushHistory(prev);
+
+  try {
+    localStorage.setItem(LS_CURRENT, JSON.stringify(record));
+  } catch {
+    // 용량 초과 시 사진 없이 재시도
+    record.photo = null;
+    try { localStorage.setItem(LS_CURRENT, JSON.stringify(record)); toast("용량 문제로 사진은 제외하고 저장했어요"); }
+    catch { toast("저장 공간이 부족해요. 기록을 정리해 주세요"); return; }
+  }
+
+  // 입력 초기화 (층수는 유지 — 같은 주차장 재방문이 흔함)
+  $("zone").value = ""; $("memo").value = "";
+  photoData = null; gps = null;
+  $("photoPreview").style.display = "none";
+  $("btnPhoto").classList.remove("done"); $("photoLabel").textContent = "사진 찍기";
+  $("btnGps").classList.remove("done"); $("gpsLabel").textContent = "GPS 저장";
+
+  toast("주차 위치를 저장했어요 🅿️");
+  switchTab("current");
+});
+
+function pushHistory(rec) {
+  const hist = loadJSON(LS_HISTORY, []);
+  rec.photo = null; // 히스토리는 용량 절약을 위해 사진 제외
+  hist.unshift(rec);
+  if (hist.length > 50) hist.length = 50;
+  try { localStorage.setItem(LS_HISTORY, JSON.stringify(hist)); } catch {}
+}
+
+/* ---------------- 내 차 위치 ---------------- */
+function renderCurrent() {
+  const el = $("viewCurrent");
+  clearInterval(elapsedTimer);
+  const cur = loadJSON(LS_CURRENT, null);
+
+  if (!cur) {
+    el.innerHTML = `
+      <div class="card empty">
+        <div class="icon">🚗</div>
+        <p>아직 기록된 주차 위치가 없어요.<br>주차 후 <b>기록하기</b> 탭에서 저장해 보세요.</p>
+      </div>`;
+    return;
+  }
+
+  const title = [cur.building, cur.zone].filter(Boolean).join(" · ");
+  const mapLink = cur.gps
+    ? `<a href="https://map.kakao.com/link/map/내주차위치,${cur.gps.lat},${cur.gps.lng}" target="_blank" rel="noopener">🗺️ 지도 보기</a>`
+    : `<button disabled style="opacity:.45">🗺️ GPS 없음</button>`;
+
+  el.innerHTML = `
+    <div class="card current-hero">
+      <h2>내 차는 여기에 있어요</h2>
+      <div class="big-floor">${floorText(cur.floor)} <span style="font-size:18px;font-weight:700;opacity:.85">${floorKorean(cur.floor)}</span></div>
+      ${title ? `<div class="spot">${esc(title)}</div>` : ""}
+      ${cur.memo ? `<div class="meta">📝 ${esc(cur.memo)}</div>` : ""}
+      <div class="meta">🕐 ${fmtDate(cur.ts)} 주차</div>
+      <span class="elapsed" id="elapsed">${fmtElapsed(Date.now() - cur.ts)}</span>
+      ${cur.photo ? `<img src="${cur.photo}" alt="주차 위치 사진">` : ""}
+      <div class="hero-actions">
+        <button id="btnShare">📤 공유</button>
+        ${mapLink}
+      </div>
+      <button class="done-btn" id="btnDone">✅ 차 찾았어요 (주차 종료)</button>
+    </div>`;
+
+  elapsedTimer = setInterval(() => {
+    const e = $("elapsed");
+    if (e) e.textContent = fmtElapsed(Date.now() - cur.ts);
+  }, 30000);
+
+  $("btnShare").addEventListener("click", async () => {
+    let text = `[내 주차 위치] ${floorText(cur.floor)} (${floorKorean(cur.floor)})`;
+    if (title) text += ` — ${title}`;
+    if (cur.memo) text += `\n메모: ${cur.memo}`;
+    text += `\n주차 시각: ${fmtDate(cur.ts)}`;
+    if (cur.gps) text += `\n지도: https://map.kakao.com/link/map/주차위치,${cur.gps.lat},${cur.gps.lng}`;
+    try {
+      if (navigator.share) await navigator.share({ text });
+      else { await navigator.clipboard.writeText(text); toast("클립보드에 복사했어요"); }
+    } catch {}
+  });
+
+  $("btnDone").addEventListener("click", () => {
+    pushHistory(cur);
+    localStorage.removeItem(LS_CURRENT);
+    toast("주차 기록을 종료했어요");
+    renderCurrent();
+  });
+}
+
+/* ---------------- 히스토리 ---------------- */
+function renderHistory() {
+  const el = $("viewHistory");
+  const hist = loadJSON(LS_HISTORY, []);
+
+  if (!hist.length) {
+    el.innerHTML = `
+      <div class="card empty">
+        <div class="icon">📂</div>
+        <p>지난 주차 기록이 없어요.<br>주차를 종료하면 여기에 쌓여요.</p>
+      </div>`;
+    return;
+  }
+
+  const items = hist.map(h => {
+    const title = [h.building, h.zone].filter(Boolean).join(" · ") || "위치 정보 없음";
+    return `
+      <div class="hist-item" data-id="${h.id}">
+        <div class="hist-floor ${h.floor < 0 ? "basement" : ""}">
+          <span>${floorText(h.floor)}</span>
+        </div>
+        <div class="hist-info">
+          <div class="t1">${esc(title)}</div>
+          <div class="t2">${fmtDate(h.ts)}${h.memo ? " · " + esc(h.memo) : ""}</div>
+        </div>
+        <button class="hist-del" aria-label="삭제">✕</button>
+      </div>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="card">
+      <h2>지난 주차 기록 (최근 ${hist.length}건)</h2>
+      ${items}
+    </div>
+    <button class="hist-clear" id="btnClear">전체 기록 삭제</button>`;
+
+  el.querySelectorAll(".hist-del").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = +btn.closest(".hist-item").dataset.id;
+      const next = loadJSON(LS_HISTORY, []).filter(h => h.id !== id);
+      localStorage.setItem(LS_HISTORY, JSON.stringify(next));
+      renderHistory();
+    });
+  });
+  $("btnClear").addEventListener("click", () => {
+    if (confirm("지난 주차 기록을 모두 삭제할까요?")) {
+      localStorage.removeItem(LS_HISTORY);
+      renderHistory();
+    }
+  });
+}
+
+/* ---------------- 탭 ---------------- */
+const tabs = { record: "tabRecord", current: "tabCurrent", history: "tabHistory" };
+function switchTab(name) {
+  Object.entries(tabs).forEach(([k, id]) => $(id).classList.toggle("active", k === name));
+  $("viewRecord").classList.toggle("hidden", name !== "record");
+  $("viewCurrent").classList.toggle("hidden", name !== "current");
+  $("viewHistory").classList.toggle("hidden", name !== "history");
+  if (name === "current") renderCurrent();
+  if (name === "history") renderHistory();
+}
+$("tabRecord").addEventListener("click", () => switchTab("record"));
+$("tabCurrent").addEventListener("click", () => switchTab("current"));
+$("tabHistory").addEventListener("click", () => switchTab("history"));
+
+// 주차 중이면 "내 차 위치"를 첫 화면으로
+if (loadJSON(LS_CURRENT, null)) switchTab("current");
+
+/* ---------------- 서비스 워커 (오프라인 지원) ---------------- */
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
