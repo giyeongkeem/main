@@ -25,6 +25,7 @@ from .config import Config
 ProgressFn = Callable[[str, str], None]
 
 NOTION_API = "https://api.notion.com/v1/pages"
+NOTION_QUERY_API = "https://api.notion.com/v1/databases/{db}/query"
 NOTION_VERSION = "2022-06-28"
 
 
@@ -121,6 +122,32 @@ def _summary_of(md: str, max_len: int = 300) -> str:
     return " / ".join(bullets)[:max_len] if bullets else _plain(md)[:max_len]
 
 
+def _notion_page_exists(token: str, database_id: str, date_str: str) -> bool:
+    """같은 날짜의 페이지가 이미 있는지 조회 (재실행 시 중복 생성 방지).
+
+    조회 자체가 실패하면 False를 반환해 생성을 막지 않는다.
+    """
+    payload = {
+        "filter": {"property": "날짜", "date": {"equals": date_str}},
+        "page_size": 1,
+    }
+    req = urllib.request.Request(
+        NOTION_QUERY_API.format(db=database_id),
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Notion-Version": NOTION_VERSION,
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+        return bool(data.get("results"))
+    except Exception:
+        return False
+
+
 def notion_archive(
     md_text: str,
     date_str: str,
@@ -136,6 +163,9 @@ def notion_archive(
     if not cfg.notion_database_id:
         progress("status", "  (archive.notion.database_id 미설정 — Notion 아카이빙 생략)")
         return False
+    if _notion_page_exists(token, cfg.notion_database_id, date_str):
+        progress("status", f"  (같은 날짜({date_str}) 페이지가 이미 있어 중복 생성 생략)")
+        return True
 
     sector_names = [s.name for s in cfg.sectors]
     payload = {
