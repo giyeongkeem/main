@@ -137,7 +137,20 @@ def run(cfg: Config, output_path: Path | None = None, progress: ProgressFn = _de
     if output_path is None:
         cfg.output_dir.mkdir(parents=True, exist_ok=True)
         output_path = cfg.output_dir / f"{now.strftime('%Y-%m-%d')}_sector_report.md"
-    output_path.write_text(report + "\n", encoding="utf-8")
+
+    # 옵시디언(Dataview)용 YAML frontmatter — .md 파일에만 붙이고,
+    # HTML 변환·Notion 아카이빙에는 본문(report)만 사용한다.
+    sector_list = ", ".join(s.name for s in cfg.sectors)
+    frontmatter = (
+        "---\n"
+        f"date: {now.strftime('%Y-%m-%d')}\n"
+        "type: sector-report\n"
+        f"sectors: [{sector_list}]\n"
+        "tags: [투자리포트]\n"
+        f"backend: {cfg.backend}\n"
+        "---\n\n"
+    )
+    output_path.write_text(frontmatter + report + "\n", encoding="utf-8")
 
     # 시각화 HTML도 함께 저장 (markdown 미설치 시 조용히 건너뜀)
     try:
