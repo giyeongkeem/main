@@ -4,12 +4,14 @@
 소요 시간은 약 15~20분이고, 두 서비스 모두 **무료 플랜**으로 충분합니다.
 
 ```
-[방문자] ──> Vercel (Next.js 앱 실행)  ──>  Supabase (PostgreSQL — 데이터·업로드 이미지 저장)
+[방문자] ──> Vercel (Next.js 앱 실행) ──> Supabase (PostgreSQL: 데이터 / Storage: 업로드 이미지)
 ```
 
 - 코드는 이미 배포 준비가 끝나 있습니다. `DATABASE_URL`만 설정하면 저장소가 자동으로 Postgres로 전환되고,
   첫 접속 시 테이블·샘플 데이터가 자동 생성됩니다.
-- 업로드 사진도 Postgres에 저장되므로 배포 환경에서 관리자 사진 업로드가 그대로 동작합니다. (개당 4MB 제한)
+- 업로드 사진은 Supabase **Storage**(설정 시, 권장) 또는 **DB**(미설정 시 자동 폴백)에 저장되어
+  배포 환경에서도 관리자 사진 업로드가 그대로 동작합니다. (개당 4MB 제한)
+- 소셜 로그인(카카오·네이버·애플)은 **선택**입니다 — 키를 넣은 제공자만 버튼이 활성화되고, 없어도 서비스는 정상 동작합니다.
 
 ---
 
@@ -44,6 +46,10 @@ Vercel은 기본적으로 `main` 브랜치를 배포하므로, 둘 중 하나를
    postgresql://postgres.xxxxxxxx:[YOUR-PASSWORD]@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
    ```
 5. `[YOUR-PASSWORD]` 부분을 2번에서 만든 비밀번호로 바꿔서 메모해 두세요.
+6. *(권장 — 이미지 CDN 저장)* 왼쪽 메뉴 **Project Settings → API** 에서
+   **Project URL**(`https://xxx.supabase.co`)과 **service_role 키**도 복사해 두세요.
+   → 아래 STEP 2의 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` 값입니다.
+   (건너뛰어도 됩니다 — 이미지가 DB에 저장되는 폴백으로 동작)
 
 > ⚠️ 반드시 **Transaction pooler(포트 6543)** URI를 쓰세요.
 > "Direct connection(5432)"은 Vercel(서버리스/IPv4) 환경에서 연결이 실패할 수 있습니다.
@@ -57,15 +63,34 @@ Vercel은 기본적으로 `main` 브랜치를 배포하므로, 둘 중 하나를
 3. 저장소 목록에서 `giyeongkeem/main` 찾아 **Import**
    (안 보이면 *Adjust GitHub App Permissions*에서 저장소 접근 허용)
 4. 설정 화면에서 Framework가 **Next.js**로 자동 인식되는지 확인 (빌드 설정은 건드릴 필요 없음)
-5. **Environment Variables** 섹션에 아래 3개를 추가:
+5. **Environment Variables** 섹션에 아래를 추가:
+
+   **필수**
 
    | Key | Value |
    | --- | --- |
    | `DATABASE_URL` | STEP 1에서 만든 Transaction pooler URI |
    | `ADMIN_PASSWORD` | 원하는 관리자 비밀번호 (admin1234 금지!) |
    | `ADMIN_SECRET` | 아무 긴 무작위 문자열 (예: 비밀번호 생성기로 40자) |
+   | `AUTH_SECRET` | 아무 긴 무작위 문자열 (위와 다른 값) |
 
-   *(선택)* 샘플 데이터 16개 없이 빈 상태로 시작하려면 `SEED_SAMPLE_DATA` = `false` 추가
+   **권장 (이미지를 CDN에 저장)**
+
+   | Key | Value |
+   | --- | --- |
+   | `SUPABASE_URL` | STEP 1-6의 Project URL |
+   | `SUPABASE_SERVICE_ROLE_KEY` | STEP 1-6의 service_role 키 |
+
+   **선택**
+
+   | Key | 설명 |
+   | --- | --- |
+   | `SEED_SAMPLE_DATA` = `false` | 샘플 16개 없이 빈 상태로 시작 |
+   | `AUTH_KAKAO_ID` / `AUTH_KAKAO_SECRET` | 카카오 로그인 (README의 “소셜 로그인 설정” 참고) |
+   | `AUTH_NAVER_ID` / `AUTH_NAVER_SECRET` | 네이버 로그인 |
+   | `AUTH_APPLE_ID` / `AUTH_APPLE_SECRET` | 애플 로그인 (유료 멤버십 필요) |
+
+   소셜 로그인 키는 나중에 추가해도 됩니다 — 추가한 제공자만 로그인 버튼이 활성화됩니다.
 
 6. **Deploy** 클릭 → 1~2분 후 완료 화면에서 URL 확인 (`https://….vercel.app`)
 
@@ -96,11 +121,13 @@ Vercel은 기본적으로 `main` 브랜치를 배포하므로, 둘 중 하나를
 | 비밀번호에 특수문자가 있어 연결 실패 | Supabase → *Settings → Database → Reset database password* 로 영숫자 비밀번호 재발급 |
 | 한동안 접속 안 했더니 DB 오류 | Supabase 무료 플랜은 1주 미사용 시 일시정지 → 대시보드에서 **Restore/Resume** 클릭 |
 | 사진 업로드 400 에러 | 4MB 초과 이미지 → 크기를 줄여 업로드 |
+| 사진 업로드 500 에러 | `SUPABASE_SERVICE_ROLE_KEY` 오입력(anon 키와 혼동) 여부 확인 — *Settings → API*의 **service_role** 키여야 함 |
 | 관리자 로그인이 안 됨 | `ADMIN_PASSWORD` 환경변수 확인 후 Vercel **Redeploy** (환경변수 변경은 재배포해야 반영) |
+| 소셜 로그인 리다이렉트 오류 | 제공자 콘솔의 콜백 URL이 `https://<배포도메인>/api/auth/callback/<provider>` 와 정확히 일치하는지 확인 |
 
 ## 운영 팁
 
-- **관리자 비밀번호는 길고 무작위하게**, `ADMIN_SECRET`도 반드시 변경하세요.
-- 커스텀 도메인: Vercel → *Settings → Domains* 에서 연결 (예: fitmatch.kr)
-- 사진이 수백 장 규모로 늘어나면 DB 용량(무료 500MB)을 아끼기 위해
-  **Supabase Storage(CDN)** 로 이미지 저장을 옮기는 것을 권장합니다. (다음 단계 P2)
+- **관리자 비밀번호는 길고 무작위하게**, `ADMIN_SECRET`·`AUTH_SECRET`도 반드시 변경하세요.
+- 커스텀 도메인: Vercel → *Settings → Domains* 에서 연결 (예: fitmatch.kr) — 연결 후 소셜 로그인 콜백 URL도 새 도메인으로 갱신
+- 이미지 저장 우선순위: **Supabase Storage(권장, CDN)** → 미설정 시 DB(bytea) → 로컬 파일.
+  Storage 키만 넣으면 별도 코드 수정 없이 자동 전환됩니다.

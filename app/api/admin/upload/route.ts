@@ -33,8 +33,9 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  if (file.size > 8 * 1024 * 1024) {
-    return NextResponse.json({ error: "8MB 이하 이미지만 업로드할 수 있습니다." }, { status: 400 });
+  // Vercel 등 서버리스의 요청 본문 제한(4.5MB)을 고려한 상한
+  if (file.size > 4 * 1024 * 1024) {
+    return NextResponse.json({ error: "4MB 이하 이미지만 업로드할 수 있습니다." }, { status: 400 });
   }
 
   try {

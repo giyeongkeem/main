@@ -18,7 +18,7 @@
 - **후기 작성** — 방문자가 별점·후기를 남기면 평점이 자동 반영, 관리자 후기 삭제 가능
 - **업체 셀프 등록** — `/register`에서 신청 → 관리자 **승인/반려** 후 공개
 - **소셜 로그인** — 카카오·네이버·애플 로그인(Auth.js), 로그인 시 후기를 내 이름으로 작성
-- **이미지 저장** — 로컬(`public/uploads`) 또는 **Supabase Storage** 자동 전환
+- **이미지 저장** — Supabase Storage → PostgreSQL → 로컬 파일 순 자동 선택
 - **반응형 UI** — 데스크톱/모바일 모두 지원, 모바일 필터 드로어 제공
 
 ## 🗂 페이지 구성
@@ -80,23 +80,30 @@ ADMIN_SECRET="아무_긴_임의문자열"
 
 ## 🌐 배포하기 (Supabase + Vercel)
 
-로컬 파일 저장은 배포 환경(서버리스)에서 쓰기가 제한되므로, 배포 시에는 Postgres(Supabase)를 연결합니다.
+👉 **처음이라면 단계별 상세 가이드: [DEPLOY.md](./DEPLOY.md)** (약 15~20분, 무료 플랜으로 충분)
+
+요약:
 
 1. **Supabase** — [supabase.com](https://supabase.com)에서 프로젝트 생성 →
-   *Project Settings → Database → Connection string (URI)* 복사
+   상단 **[Connect] → Transaction pooler → URI** 복사 (⚠️ 서버리스에선 Direct(5432) 대신 풀러(6543) 필수)
 2. **Vercel** — [vercel.com](https://vercel.com)에서 GitHub 저장소 `import` (Next.js 자동 인식)
 3. Vercel **Environment Variables**에 추가:
-   - `DATABASE_URL` = 위 Supabase 연결 문자열
+   - `DATABASE_URL` = 위 Transaction pooler 연결 문자열
    - `ADMIN_PASSWORD` = 원하는 관리자 비밀번호
    - `ADMIN_SECRET` = 임의의 긴 문자열
    - `AUTH_SECRET` = 임의의 긴 문자열 (`openssl rand -base64 32`)
-   - (이미지) `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — *Settings → API*
-   - (소셜 로그인) 아래 “소셜 로그인 설정”의 키들
+   - (이미지, 권장) `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — *Settings → API*
+   - (소셜 로그인, 선택) 아래 “소셜 로그인 설정”의 키들
 4. **Deploy** → 첫 접속 시 DB 테이블·시드, Storage 버킷이 자동 생성됩니다.
 
-### 🖼 이미지 저장 (Supabase Storage)
-`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` 를 설정하면 업로드 이미지가 **Supabase Storage**(public 버킷 `uploads`)에
-저장됩니다. 버킷은 첫 업로드 시 자동 생성됩니다. 미설정 시 로컬 `data/uploads`(`/api/uploads`로 서빙)를 사용합니다.
+### 🖼 이미지 저장 (자동 선택)
+| 설정 | 저장 위치 | 용도 |
+| --- | --- | --- |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | **Supabase Storage** (public 버킷, CDN) | 운영 권장 |
+| `DATABASE_URL`만 | **PostgreSQL** (`images` 테이블) → `/api/images` 서빙 | Storage 설정 없이도 배포에서 업로드 동작 |
+| 둘 다 없음 | 로컬 `data/uploads` → `/api/uploads` 서빙 | 로컬 개발 |
+
+버킷은 첫 업로드 시 자동 생성되며, 업로드는 개당 **4MB 이하**(서버리스 요청 한도 고려)입니다.
 
 ### 🔑 소셜 로그인 설정 (카카오 · 네이버 · 애플)
 환경변수가 있는 제공자만 로그인 버튼이 활성화됩니다. 공통으로 `AUTH_SECRET` 이 필요합니다.
