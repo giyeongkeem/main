@@ -1,0 +1,714 @@
+<title>안부 — 웨어러블 시니어 케어 프로토타입</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --surface-2: #f0efec;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #898781;
+    --line: #e1e0d9;
+    --border: rgba(11, 11, 11, 0.10);
+    --accent: #2a78d6;
+    --accent-soft: #cde2fb;
+    --good: #0ca30c;
+    --good-text: #006300;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+    --series-1: #2a78d6;
+    --series-2: #1baf7a;
+    --grid: #e1e0d9;
+    --phone-bezel: #0b0b0b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --surface-2: #262624;
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #898781;
+      --line: #2c2c2a;
+      --border: rgba(255, 255, 255, 0.10);
+      --accent: #3987e5;
+      --accent-soft: #104281;
+      --good-text: #0ca30c;
+      --series-1: #3987e5;
+      --series-2: #199e70;
+      --grid: #2c2c2a;
+      --phone-bezel: #383835;
+    }
+  }
+  :root[data-theme="dark"] {
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #262624;
+    --ink: #ffffff; --ink-2: #c3c2b7; --ink-3: #898781;
+    --line: #2c2c2a; --border: rgba(255,255,255,0.10);
+    --accent: #3987e5; --accent-soft: #104281; --good-text: #0ca30c;
+    --series-1: #3987e5; --series-2: #199e70; --grid: #2c2c2a; --phone-bezel: #383835;
+  }
+  :root[data-theme="light"] {
+    --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f0efec;
+    --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #898781;
+    --line: #e1e0d9; --border: rgba(11,11,11,0.10);
+    --accent: #2a78d6; --accent-soft: #cde2fb; --good-text: #006300;
+    --series-1: #2a78d6; --series-2: #1baf7a; --grid: #e1e0d9; --phone-bezel: #0b0b0b;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: "Pretendard Variable", Pretendard, -apple-system, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    line-height: 1.5;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 24px;
+    background: color-mix(in srgb, var(--page) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand .mark {
+    font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
+  }
+  .brand .mark em { font-style: normal; color: var(--accent); }
+  .brand .tag { font-size: 12px; color: var(--ink-3); letter-spacing: 0.04em; }
+
+  .mode-switch {
+    display: flex; padding: 3px; border-radius: 10px;
+    background: var(--surface-2); border: 1px solid var(--border);
+  }
+  .mode-switch button {
+    border: 0; background: transparent; border-radius: 8px;
+    padding: 7px 16px; font-size: 13.5px; font-weight: 600; color: var(--ink-2);
+  }
+  .mode-switch button[aria-pressed="true"] {
+    background: var(--surface); color: var(--ink);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+  .mode-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .mode-switch .sub { display: block; font-size: 10.5px; font-weight: 500; color: var(--ink-3); letter-spacing: 0.05em; }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; }
+  section[hidden] { display: none; }
+
+  /* ---------- shared card language ---------- */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px;
+  }
+  .card h3 {
+    margin: 0 0 2px; font-size: 12px; font-weight: 600;
+    color: var(--ink-3); letter-spacing: 0.06em;
+  }
+  .metric { font-size: 26px; font-weight: 750; letter-spacing: -0.01em; }
+  .metric small { font-size: 13px; font-weight: 500; color: var(--ink-3); margin-left: 2px; }
+  .delta-good { color: var(--good-text); font-size: 12px; font-weight: 600; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 650; padding: 3px 10px; border-radius: 999px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  /* ---------- B2C: phone + annotation ---------- */
+  .b2c-layout {
+    display: grid; grid-template-columns: minmax(340px, 420px) 1fr;
+    gap: 40px; align-items: start;
+  }
+  @media (max-width: 860px) { .b2c-layout { grid-template-columns: 1fr; } }
+
+  .phone {
+    border: 10px solid var(--phone-bezel); border-radius: 40px;
+    background: var(--page); overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+  }
+  .phone-screen { padding: 20px 18px 26px; display: flex; flex-direction: column; gap: 14px; }
+
+  .p-head { display: flex; justify-content: space-between; align-items: center; }
+  .p-head .who { font-size: 16px; font-weight: 750; }
+  .p-head .who span { color: var(--ink-3); font-weight: 500; font-size: 13px; }
+  .conn { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-2); }
+
+  .hero-status {
+    text-align: center; padding: 26px 16px 22px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+  }
+  .ring {
+    width: 96px; height: 96px; margin: 0 auto 12px; border-radius: 50%;
+    display: grid; place-items: center;
+    background:
+      radial-gradient(closest-side, var(--surface) 78%, transparent 79% 100%),
+      conic-gradient(var(--good) 0 86%, var(--surface-2) 86% 100%);
+  }
+  .ring .face { font-size: 34px; }
+  .hero-status .headline { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+  .hero-status .sub { font-size: 13px; color: var(--ink-2); margin-top: 3px; }
+
+  .p-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .p-grid .card { padding: 13px 14px; border-radius: 14px; }
+  .p-grid .card.wide { grid-column: span 2; }
+
+  .chart-box { position: relative; margin-top: 8px; }
+  .chart-box svg { display: block; width: 100%; height: auto; }
+  .tip {
+    position: absolute; pointer-events: none; z-index: 5;
+    background: var(--ink); color: var(--page);
+    font-size: 11.5px; font-weight: 600; padding: 4px 8px; border-radius: 6px;
+    transform: translate(-50%, -130%); white-space: nowrap;
+    opacity: 0; transition: opacity 0.08s;
+  }
+  .tip .t2 { display: block; font-weight: 400; opacity: 0.75; font-size: 10.5px; }
+
+  .sleep-track { display: flex; gap: 2px; height: 26px; border-radius: 6px; overflow: hidden; margin-top: 10px; }
+  .sleep-track div { border-radius: 3px; }
+  .sleep-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 11px; color: var(--ink-2); }
+  .sleep-legend span { display: inline-flex; gap: 5px; align-items: center; }
+
+  .feed { display: flex; flex-direction: column; gap: 0; }
+  .feed-item { display: flex; gap: 12px; padding: 11px 2px; border-bottom: 1px solid var(--line); }
+  .feed-item:last-child { border-bottom: 0; }
+  .feed-item .when { flex: none; width: 52px; font-size: 11px; color: var(--ink-3); padding-top: 2px; font-variant-numeric: tabular-nums; }
+  .feed-item .what { font-size: 13px; }
+  .feed-item .what b { font-weight: 700; }
+  .feed-item .what .note { color: var(--ink-2); font-size: 12px; }
+
+  .fam { display: flex; align-items: center; gap: 10px; }
+  .avatars { display: flex; }
+  .avatars span {
+    width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; color: #fff; border: 2px solid var(--surface);
+    margin-left: -8px;
+  }
+  .avatars span:first-child { margin-left: 0; }
+
+  .sub-banner {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--accent-soft); border-radius: 14px; padding: 13px 16px;
+  }
+  .sub-banner .t { font-size: 13px; font-weight: 700; }
+  .sub-banner .d { font-size: 11.5px; color: var(--ink-2); }
+  .sub-banner .price { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+  .annot { display: flex; flex-direction: column; gap: 18px; position: sticky; top: 84px; }
+  .annot h2 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+  .annot .lede { color: var(--ink-2); font-size: 15px; max-width: 46ch; margin: 0; }
+  .annot ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+  .annot li { display: flex; gap: 12px; font-size: 14px; }
+  .annot li .k {
+    flex: none; width: 118px; font-size: 11.5px; font-weight: 700;
+    color: var(--ink-3); letter-spacing: 0.05em; padding-top: 2px;
+  }
+  .annot li .v { color: var(--ink-2); }
+  .annot li .v b { color: var(--ink); font-weight: 700; }
+
+  /* ---------- B2G console ---------- */
+  .console-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+  .console-head h2 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+  .console-head .meta { font-size: 13px; color: var(--ink-2); }
+  .console-head .meta b { color: var(--ink); }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+  @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { position: relative; overflow: hidden; }
+  .kpi .stripe { position: absolute; inset: 0 auto 0 0; width: 4px; }
+
+  .console-grid { display: grid; grid-template-columns: 1.7fr 1fr; gap: 14px; align-items: start; }
+  @media (max-width: 980px) { .console-grid { grid-template-columns: 1fr; } }
+
+  .queue-card { padding: 0; overflow: hidden; }
+  .queue-card header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 10px; }
+  .queue-card header h3 { margin: 0; font-size: 14px; font-weight: 750; color: var(--ink); letter-spacing: 0; }
+  .queue-card header .hint { font-size: 12px; color: var(--ink-3); }
+  .tbl-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 600px; font-size: 13px; }
+  th {
+    text-align: left; font-size: 11px; color: var(--ink-3); font-weight: 650;
+    letter-spacing: 0.05em; padding: 8px 12px; border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  td { padding: 10px 9px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  tr:hover td { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+  td .nm { font-weight: 700; }
+  td .sub { display: block; font-size: 11.5px; color: var(--ink-3); }
+  td.num { font-variant-numeric: tabular-nums; }
+  .risk { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12px; }
+  .sig { font-size: 12.5px; }
+  .sig .note { color: var(--ink-3); }
+  .act { display: flex; gap: 6px; }
+  .act button {
+    border: 1px solid var(--border); background: var(--surface);
+    border-radius: 7px; padding: 4px 8px; font-size: 12px; font-weight: 650;
+  }
+  .act button:hover { background: var(--surface-2); }
+  .act button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .act button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .side-col { display: flex; flex-direction: column; gap: 14px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw { width: 10px; height: 10px; border-radius: 3px; }
+
+  .flow { display: flex; flex-direction: column; gap: 0; counter-reset: step; }
+  .flow-step { display: flex; gap: 12px; padding: 10px 0; }
+  .flow-step + .flow-step { border-top: 1px dashed var(--line); }
+  .flow-step .n {
+    flex: none; width: 24px; height: 24px; border-radius: 50%;
+    background: var(--surface-2); color: var(--ink-2);
+    display: grid; place-items: center; font-size: 12px; font-weight: 750;
+  }
+  .flow-step .t { font-size: 13px; font-weight: 700; }
+  .flow-step .d { font-size: 12px; color: var(--ink-2); }
+
+  .budget { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  .budget-row { font-size: 12.5px; }
+  .budget-row .lbl { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .budget-row .lbl b { font-variant-numeric: tabular-nums; }
+  .bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+  .bar div { height: 100%; border-radius: 4px; background: var(--series-1); }
+
+  footer.strip {
+    max-width: 1180px; margin: 0 auto; padding: 0 24px 48px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  @media (max-width: 860px) { footer.strip { grid-template-columns: 1fr; } }
+  footer.strip .card h4 { margin: 0 0 6px; font-size: 13px; font-weight: 750; }
+  footer.strip .card p { margin: 0; font-size: 13px; color: var(--ink-2); }
+  .disclaim { grid-column: 1 / -1; text-align: center; font-size: 11.5px; color: var(--ink-3); }
+</style>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="mark">안<em>부</em></span>
+    <span class="tag">웨어러블 시니어 케어 플랫폼 · 프로토타입</span>
+  </div>
+  <div class="mode-switch" role="tablist" aria-label="모드 전환">
+    <button id="btn-b2c" aria-pressed="true" onclick="setMode('b2c')">자녀 앱<span class="sub">B2C 구독</span></button>
+    <button id="btn-b2g" aria-pressed="false" onclick="setMode('b2g')">관제센터<span class="sub">B2G 위탁</span></button>
+  </div>
+</div>
+
+<main>
+  <!-- ================= B2C ================= -->
+  <section id="view-b2c" class="b2c-layout">
+    <div class="phone" aria-label="자녀용 모바일 앱 화면">
+      <div class="phone-screen">
+        <div class="p-head">
+          <div class="who">어머니 <span>박순자 · 78</span></div>
+          <div class="conn"><span class="dot" style="background:var(--good)"></span>워치 연결됨 · 5분 전</div>
+        </div>
+
+        <div class="hero-status">
+          <div class="ring"><div class="face">☀️</div></div>
+          <div class="headline">오늘도 평소와 같아요</div>
+          <div class="sub">오전 6:42 기상 움직임 감지 · 평소 기상 6:30±20분</div>
+        </div>
+
+        <div class="p-grid">
+          <div class="card">
+            <h3>걸음</h3>
+            <div class="metric" id="m-steps">—</div>
+            <div class="delta-good">▲ 평소 대비 +12%</div>
+            <div class="chart-box" id="c-steps"></div>
+          </div>
+          <div class="card">
+            <h3>안정 시 심박</h3>
+            <div class="metric">64<small>bpm</small></div>
+            <div class="delta-good">기준선 62–66 안</div>
+            <div class="chart-box" id="c-hr7"></div>
+          </div>
+
+          <div class="card wide">
+            <h3>오늘 심박 흐름</h3>
+            <div class="chart-box" id="c-hr24"></div>
+          </div>
+
+          <div class="card wide">
+            <h3>어젯밤 수면 · 7시간 10분</h3>
+            <div class="sleep-track" id="c-sleep" role="img" aria-label="수면 단계: 깊은 수면 1시간 20분, 코어 4시간 10분, 렘 1시간 25분, 깸 15분"></div>
+            <div class="sleep-legend">
+              <span><span class="dot" style="background:var(--series-1)"></span>깊은 1h 20m</span>
+              <span><span class="dot" style="background:color-mix(in srgb, var(--series-1) 45%, var(--surface))"></span>코어 4h 10m</span>
+              <span><span class="dot" style="background:var(--series-2)"></span>렘 1h 25m</span>
+              <span><span class="dot" style="background:var(--surface-2); border:1px solid var(--line)"></span>깸 15m</span>
+            </div>
+          </div>
+
+          <div class="card wide">
+            <h3>알림</h3>
+            <div class="feed">
+              <div class="feed-item">
+                <div class="when">오늘 07:02</div>
+                <div class="what"><b>아침 활동 시작</b> — 평소 패턴과 일치<span class="note"><br>가족에게 별도 알림 없이 기록만 남겼어요.</span></div>
+              </div>
+              <div class="feed-item">
+                <div class="when">수요일</div>
+                <div class="what"><b>기상 2시간 지연</b> 감지 → 김영님이 확인 전화<span class="note"><br>"괜찮음 · 전날 늦게 주무심"으로 종결.</span></div>
+              </div>
+              <div class="feed-item">
+                <div class="when">지난주</div>
+                <div class="what"><b>주간 리포트</b> — 걸음 ▲8%, 수면 안정<span class="note"><br>병원 동행 시 보여드릴 요약 PDF 저장됨.</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card wide fam">
+            <div class="avatars">
+              <span style="background:#2a78d6">영</span>
+              <span style="background:#1baf7a">진</span>
+              <span style="background:#eb6834">숙</span>
+            </div>
+            <div style="font-size:12.5px; color:var(--ink-2)">나, 동생, 이모가 함께 보고 있어요 ·<b style="color:var(--ink)"> 알림 당번: 나</b></div>
+          </div>
+        </div>
+
+        <div class="sub-banner">
+          <div>
+            <div class="t">가족 요금제</div>
+            <div class="d">보호자 3인 · 어르신 1인 · 워치 렌털 포함</div>
+          </div>
+          <div class="price">₩6,900<span style="font-size:11px; font-weight:500">/월</span></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="annot">
+      <h2>자녀가 구독하고,<br>부모님은 아무것도 안 해도 됩니다</h2>
+      <p class="lede">65세 이상 웨어러블 착용률이 2%에 머무는 이유는 기기가 아니라 "노인이 직접 조작하는 앱" 설계 때문입니다. 안부는 지불자와 사용자를 분리합니다 — 워치는 부모님 손목에, 앱은 자녀 폰에.</p>
+      <ul>
+        <li><span class="k">핵심 가치</span><span class="v"><b>"평소와 같음"의 확인.</b> 이상 알림보다 매일 아침의 정상 신호가 구독을 유지시키는 감정적 훅입니다.</span></li>
+        <li><span class="k">데이터</span><span class="v">걸음·심박·수면·낙상 감지 — 애플워치/핏빗 기본 센서만 사용, 의료기기 인증 불필요한 웰니스 범위.</span></li>
+        <li><span class="k">이상 감지</span><span class="v">개인 베이스라인(기상 시각, 활동량, 안정 시 심박) 대비 편차 감지. 진단이 아닌 <b>"확인 전화 권장"</b>으로 전달.</span></li>
+        <li><span class="k">수익</span><span class="v">월 ₩6,900 가족 구독 × 형제자매 분담. 중고 워치 SE 렌털 결합으로 초기 장벽 제거. LTV는 케어 기간(평균 5년+).</span></li>
+      </ul>
+    </aside>
+  </section>
+
+  <!-- ================= B2G ================= -->
+  <section id="view-b2g" hidden>
+    <div class="console-head">
+      <div>
+        <h2>성동구 스마트 안부케어 관제센터</h2>
+        <div class="meta">담당 <b>홍은정 주무관</b> · 금호1가동 외 3개 동 · 2026-07-05 (토) 09:40</div>
+      </div>
+      <span class="pill" style="background:var(--surface-2)"><span class="dot" style="background:var(--good)"></span>실시간 수신 중 · 지연 없음</span>
+    </div>
+
+    <div class="kpis">
+      <div class="card kpi"><span class="stripe" style="background:var(--good)"></span>
+        <h3>오늘 안부 확인</h3><div class="metric">128<small>/ 132명</small></div>
+        <div style="font-size:12px;color:var(--ink-2)">97% · 새벽 활동 신호 자동 확인</div>
+      </div>
+      <div class="card kpi"><span class="stripe" style="background:var(--warning)"></span>
+        <h3>주의 신호</h3><div class="metric">6<small>건</small></div>
+        <div style="font-size:12px;color:var(--ink-2)">걸음 급감 4 · 야간 심박 상승 2</div>
+      </div>
+      <div class="card kpi"><span class="stripe" style="background:var(--critical)"></span>
+        <h3>긴급 대응</h3><div class="metric">1<small>건</small></div>
+        <div style="font-size:12px;color:var(--ink-2)">18시간 무움직임 → 방문 출동 중</div>
+      </div>
+      <div class="card kpi"><span class="stripe" style="background:var(--ink-3)"></span>
+        <h3>미착용 · 미충전</h3><div class="metric">7<small>명</small></div>
+        <div style="font-size:12px;color:var(--ink-2)">48시간 무수신 시 생활지원사 방문</div>
+      </div>
+    </div>
+
+    <div class="console-grid">
+      <div class="card queue-card">
+        <header>
+          <h3>우선 대응 대기열</h3>
+          <span class="hint">위험도순 정렬 · 이름은 가명 처리</span>
+        </header>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>위험도</th><th>대상자</th><th>감지 신호</th><th>7일 걸음</th><th>최근 수신</th><th>조치</th></tr>
+            </thead>
+            <tbody id="queue-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="side-col">
+        <div class="card">
+          <h3>주간 알림 추이 · 최근 8주</h3>
+          <div class="chart-box" id="c-weekly"></div>
+          <div class="legend">
+            <span><span class="sw" style="background:var(--warning)"></span>⚠ 주의</span>
+            <span><span class="sw" style="background:var(--critical)"></span>🚨 긴급</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>대응 프로토콜</h3>
+          <div class="flow">
+            <div class="flow-step"><span class="n">1</span><div><div class="t">자동 감지</div><div class="d">베이스라인 대비 편차 — 무움직임, 걸음 급감, 심박 이상</div></div></div>
+            <div class="flow-step"><span class="n">2</span><div><div class="t">AI 안부 전화</div><div class="d">워치 진동 + 자동 발신. 응답 시 종결, 무응답 시 상향</div></div></div>
+            <div class="flow-step"><span class="n">3</span><div><div class="t">복지사 확인</div><div class="d">담당 생활지원사에게 배정, 유선·방문 확인</div></div></div>
+            <div class="flow-step"><span class="n">4</span><div><div class="t">119 연계</div><div class="d">응급안전안심서비스 게이트웨이로 자동 이관</div></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>사업 구조 · 1인당 월 단가 ₩18,000</h3>
+          <div class="budget">
+            <div class="budget-row"><div class="lbl"><span>국비 — 복지부 응급안전안심서비스 연계</span><b>50%</b></div><div class="bar"><div style="width:50%"></div></div></div>
+            <div class="budget-row"><div class="lbl"><span>지방비 — 구 조례 · 독거노인 지원 예산</span><b>40%</b></div><div class="bar"><div style="width:40%"></div></div></div>
+            <div class="budget-row"><div class="lbl"><span>자부담 — 기초수급자 면제</span><b>10%</b></div><div class="bar"><div style="width:10%"></div></div></div>
+          </div>
+          <p style="margin:10px 0 0; font-size:12px; color:var(--ink-2)">기존 응급안전안심서비스(댁내 센서)가 못 보는 <b style="color:var(--ink)">외출 중·수면 중 생체신호</b>를 보완하는 포지션. 장비는 보급형 밴드(핏빗급)로 단가를 맞춥니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="strip">
+  <div class="card">
+    <h4>B2C — 자녀 구독</h4>
+    <p>지불자(자녀)와 사용자(부모)를 분리한 가족 구독. 감정적 안심을 파는 소비자 제품으로, 회원 획득은 자녀 세대 채널(직장인 커뮤니티·명절 캠페인)에서 일어납니다.</p>
+  </div>
+  <div class="card">
+    <h4>B2G — 국가·지자체 위탁</h4>
+    <p>같은 감지 엔진을 독거노인 안부 관제로 재포장. 복지부 응급안전안심서비스와 지자체 조례 예산을 재원으로, 복지사 1인이 볼 수 있는 대상자를 30명 → 130명으로 확장하는 행정 효율이 세일즈 포인트입니다.</p>
+  </div>
+  <div class="disclaim">본 화면의 모든 인물·수치는 프로토타입용 시뮬레이션 데이터입니다.</div>
+</footer>
+
+<script>
+  function setMode(m) {
+    const b2c = m === 'b2c';
+    document.getElementById('view-b2c').hidden = !b2c;
+    document.getElementById('view-b2g').hidden = b2c;
+    document.getElementById('btn-b2c').setAttribute('aria-pressed', String(b2c));
+    document.getElementById('btn-b2g').setAttribute('aria-pressed', String(!b2c));
+  }
+
+  // deterministic PRNG so the demo is stable across reloads
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rnd = mulberry32(20260705);
+  const NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS(NS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  /* ----- B2C: 7-day step bars ----- */
+  (function stepBars() {
+    const days = ['일','월','화','수','목','금','토'];
+    const vals = [3400, 4100, 3900, 2100, 4500, 3800, 4230]; // Wed dip = the alert day
+    document.getElementById('m-steps').innerHTML = vals[6].toLocaleString('ko-KR') + '<small>보</small>';
+    const W = 160, H = 56, max = 5000, bw = 14, gap = (W - 7 * bw) / 6;
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': '최근 7일 걸음 수' });
+    vals.forEach((v, i) => {
+      const h = Math.max(4, (v / max) * (H - 16));
+      const today = i === 6;
+      const r = svgEl('rect', { x: i * (bw + gap), y: H - 12 - h, width: bw, height: h, rx: 3 });
+      r.style.fill = today ? 'var(--series-1)' : 'color-mix(in srgb, var(--series-1) 32%, var(--surface))';
+      const t = svgEl('title', {}); t.textContent = `${days[i]} · ${v.toLocaleString('ko-KR')}보`;
+      r.appendChild(t); svg.appendChild(r);
+      const lb = svgEl('text', { x: i * (bw + gap) + bw / 2, y: H - 1, 'text-anchor': 'middle', 'font-size': '8.5' });
+      lb.style.fill = today ? 'var(--ink)' : 'var(--ink-3)';
+      lb.style.fontWeight = today ? '700' : '400';
+      lb.textContent = days[i]; svg.appendChild(lb);
+    });
+    document.getElementById('c-steps').appendChild(svg);
+  })();
+
+  /* ----- B2C: resting-HR 7d sparkline ----- */
+  (function hrSpark() {
+    const vals = [63, 64, 63, 66, 65, 64, 64];
+    const W = 160, H = 56, lo = 58, hi = 70;
+    const x = i => 6 + (i / (vals.length - 1)) * (W - 12);
+    const y = v => H - 12 - ((v - lo) / (hi - lo)) * (H - 22);
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': '최근 7일 안정 시 심박' });
+    const band = svgEl('rect', { x: 0, y: y(66), width: W, height: y(62) - y(66), rx: 3 });
+    band.style.fill = 'color-mix(in srgb, var(--series-2) 14%, transparent)';
+    svg.appendChild(band);
+    const d = vals.map((v, i) => `${i ? 'L' : 'M'}${x(i)},${y(v)}`).join(' ');
+    const path = svgEl('path', { d, fill: 'none', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    path.style.stroke = 'var(--series-1)';
+    svg.appendChild(path);
+    const end = svgEl('circle', { cx: x(6), cy: y(vals[6]), r: 3.5 });
+    end.style.fill = 'var(--series-1)'; end.style.stroke = 'var(--surface)'; end.style.strokeWidth = '2';
+    svg.appendChild(end);
+    const cap = svgEl('text', { x: 6, y: H - 1, 'font-size': '8.5' });
+    cap.style.fill = 'var(--ink-3)'; cap.textContent = '기준선 62–66 bpm';
+    svg.appendChild(cap);
+    document.getElementById('c-hr7').appendChild(svg);
+  })();
+
+  /* ----- B2C: 24h heart-rate line with crosshair tooltip ----- */
+  (function hr24() {
+    const box = document.getElementById('c-hr24');
+    const W = 340, H = 96, PL = 26, PR = 8, PT = 8, PB = 18;
+    const pts = [];
+    for (let m = 0; m <= 24 * 4; m++) { // 15-min samples
+      const h = m / 4;
+      let base = 58;
+      if (h > 6.5) base = 72;
+      if (h >= 9 && h < 10.5) base = 96;      // morning walk
+      if (h >= 12 && h < 13) base = 78;
+      if (h >= 15 && h < 16) base = 84;       // market trip
+      if (h >= 21) base = 64;
+      pts.push({ h, v: Math.round(base + (rnd() - 0.5) * 7) });
+    }
+    const lo = 50, hi = 110;
+    const x = h => PL + (h / 24) * (W - PL - PR);
+    const y = v => PT + (1 - (v - lo) / (hi - lo)) * (H - PT - PB);
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': '오늘 24시간 심박수' });
+    [60, 80, 100].forEach(v => {
+      const g = svgEl('line', { x1: PL, x2: W - PR, y1: y(v), y2: y(v), 'stroke-width': 1 });
+      g.style.stroke = 'var(--grid)'; svg.appendChild(g);
+      const t = svgEl('text', { x: PL - 5, y: y(v) + 3, 'text-anchor': 'end', 'font-size': '8.5' });
+      t.style.fill = 'var(--ink-3)'; t.textContent = v; svg.appendChild(t);
+    });
+    [0, 6, 12, 18, 24].forEach(h => {
+      const t = svgEl('text', { x: x(h), y: H - 4, 'text-anchor': 'middle', 'font-size': '8.5' });
+      t.style.fill = 'var(--ink-3)'; t.textContent = h + '시'; svg.appendChild(t);
+    });
+    const dLine = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.h).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+    const area = svgEl('path', { d: `${dLine} L${x(24)},${y(lo)} L${x(0)},${y(lo)} Z` });
+    area.style.fill = 'color-mix(in srgb, var(--series-1) 12%, transparent)';
+    svg.appendChild(area);
+    const line = svgEl('path', { d: dLine, fill: 'none', 'stroke-width': 2, 'stroke-linejoin': 'round' });
+    line.style.stroke = 'var(--series-1)';
+    svg.appendChild(line);
+    // walk annotation
+    const ann = svgEl('text', { x: x(9.7), y: y(103) - 4, 'text-anchor': 'middle', 'font-size': '8.5', 'font-weight': '700' });
+    ann.style.fill = 'var(--ink-2)'; ann.textContent = '아침 산책';
+    svg.appendChild(ann);
+    // hover layer
+    const cross = svgEl('line', { y1: PT, y2: H - PB, 'stroke-width': 1, 'stroke-dasharray': '2 3' });
+    cross.style.stroke = 'var(--ink-3)'; cross.style.opacity = '0';
+    const dotEl = svgEl('circle', { r: 3.5 });
+    dotEl.style.fill = 'var(--series-1)'; dotEl.style.stroke = 'var(--surface)'; dotEl.style.strokeWidth = '2'; dotEl.style.opacity = '0';
+    svg.appendChild(cross); svg.appendChild(dotEl);
+    const tip = document.createElement('div'); tip.className = 'tip'; box.appendChild(tip);
+    box.appendChild(svg);
+    svg.addEventListener('pointermove', e => {
+      const r = svg.getBoundingClientRect();
+      const h = Math.min(24, Math.max(0, ((e.clientX - r.left) / r.width * W - PL) / (W - PL - PR) * 24));
+      const p = pts[Math.round(h * 4)];
+      if (!p) return;
+      cross.setAttribute('x1', x(p.h)); cross.setAttribute('x2', x(p.h)); cross.style.opacity = '1';
+      dotEl.setAttribute('cx', x(p.h)); dotEl.setAttribute('cy', y(p.v)); dotEl.style.opacity = '1';
+      const hh = Math.floor(p.h), mm = Math.round((p.h - hh) * 60);
+      tip.innerHTML = `${p.v} bpm<span class="t2">${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}</span>`;
+      tip.style.left = (x(p.h) / W * 100) + '%';
+      tip.style.top = (y(p.v) / H * 100) + '%';
+      tip.style.opacity = '1';
+    });
+    svg.addEventListener('pointerleave', () => {
+      tip.style.opacity = '0'; cross.style.opacity = '0'; dotEl.style.opacity = '0';
+    });
+  })();
+
+  /* ----- B2C: sleep stage track ----- */
+  (function sleep() {
+    const track = document.getElementById('c-sleep');
+    const segs = [ // minutes, stage
+      [15,'core'],[35,'deep'],[55,'core'],[25,'rem'],[45,'core'],[30,'deep'],
+      [8,'wake'],[60,'core'],[35,'rem'],[15,'deep'],[55,'core'],[25,'rem'],[7,'wake'],[20,'core']
+    ];
+    const color = {
+      deep: 'var(--series-1)',
+      core: 'color-mix(in srgb, var(--series-1) 45%, var(--surface))',
+      rem: 'var(--series-2)',
+      wake: 'var(--surface-2)'
+    };
+    const total = segs.reduce((s, x) => s + x[0], 0);
+    segs.forEach(([min, st]) => {
+      const d = document.createElement('div');
+      d.style.flex = String(min / total);
+      d.style.background = color[st];
+      if (st === 'wake') d.style.border = '1px solid var(--line)';
+      track.appendChild(d);
+    });
+  })();
+
+  /* ----- B2G: priority queue ----- */
+  (function queue() {
+    const rows = [
+      { risk: '긴급', c: 'var(--critical)', nm: '이○자', sub: '84 · 독거 · 금호1가', sig: '18시간 무움직임', note: '워치 착용 중 · 심박 정상 범위', spark: [3200,2900,3100,2800,1400,600,80], last: '09:12', act: '방문 출동' },
+      { risk: '주의', c: 'var(--warning)', nm: '김○수', sub: '79 · 독거 · 옥수동', sig: '걸음 5일 연속 급감', note: '평균 3,800 → 900보', spark: [3900,3600,2100,1500,1200,1000,900], last: '09:31', act: 'AI 안부전화' },
+      { risk: '주의', c: 'var(--warning)', nm: '박○례', sub: '81 · 독거 · 응봉동', sig: '야간 심박 +18bpm', note: '3일 연속 · 수면 중 상승', spark: [2800,3000,2700,2900,2600,2750,2800], last: '09:28', act: 'AI 안부전화' },
+      { risk: '주의', c: 'var(--warning)', nm: '최○분', sub: '77 · 부부 · 금호2가', sig: '기상 3시간 지연', note: '평소 05:50 → 오늘 미감지', spark: [4100,4000,4300,3900,4200,4000,0], last: '어제 22:40', act: '유선 확인' },
+      { risk: '점검', c: 'var(--ink-3)', nm: '정○원', sub: '86 · 독거 · 성수1가', sig: '52시간 무수신', note: '미충전 추정 · 3회째', spark: [2500,2600,2400,0,0,0,0], last: '3일 전', act: '방문 배정' }
+    ];
+    const body = document.getElementById('queue-body');
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const spark = (() => {
+        const W = 64, H = 20, max = Math.max(...r.spark, 1);
+        const p = r.spark.map((v, i) => `${i ? 'L' : 'M'}${(2 + i / 6 * (W - 4)).toFixed(1)},${(H - 3 - (v / max) * (H - 6)).toFixed(1)}`).join(' ');
+        return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="7일 걸음 추이"><path d="${p}" fill="none" stroke="var(--series-1)" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+      })();
+      tr.innerHTML = `
+        <td><span class="risk"><span class="dot" style="background:${r.c}"></span>${r.risk}</span></td>
+        <td><span class="nm">${r.nm}</span><span class="sub">${r.sub}</span></td>
+        <td class="sig"><b>${r.sig}</b><br><span class="note">${r.note}</span></td>
+        <td>${spark}</td>
+        <td class="num">${r.last}</td>
+        <td><div class="act"><button class="primary">${r.act}</button><button>이력</button></div></td>`;
+      body.appendChild(tr);
+    });
+  })();
+
+  /* ----- B2G: 8-week grouped bars (주의 / 긴급) ----- */
+  (function weekly() {
+    const warn = [14, 11, 16, 12, 9, 13, 10, 8];
+    const crit = [3, 2, 4, 2, 1, 2, 1, 1];
+    const W = 300, H = 110, PL = 20, PB = 18, PT = 14, max = 18;
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': '최근 8주 주의 및 긴급 알림 건수' });
+    const gw = (W - PL - 6) / 8, bw = 8;
+    [0, 9, 18].forEach(v => {
+      const yy = PT + (1 - v / max) * (H - PT - PB);
+      const g = svgEl('line', { x1: PL, x2: W - 2, y1: yy, y2: yy, 'stroke-width': 1 });
+      g.style.stroke = 'var(--grid)'; svg.appendChild(g);
+      const t = svgEl('text', { x: PL - 4, y: yy + 3, 'text-anchor': 'end', 'font-size': '8' });
+      t.style.fill = 'var(--ink-3)'; t.textContent = v; svg.appendChild(t);
+    });
+    warn.forEach((v, i) => {
+      const x0 = PL + i * gw + (gw - bw * 2 - 2) / 2;
+      const mk = (val, x, col, lbl) => {
+        const h = Math.max(2, val / max * (H - PT - PB));
+        const rect = svgEl('rect', { x, y: H - PB - h, width: bw, height: h, rx: 2.5 });
+        rect.style.fill = col;
+        const t = svgEl('title', {}); t.textContent = `${i + 1}주차 ${lbl} ${val}건`;
+        rect.appendChild(t); svg.appendChild(rect);
+      };
+      mk(v, x0, 'var(--warning)', '주의');
+      mk(crit[i], x0 + bw + 2, 'var(--critical)', '긴급');
+      if (i === 7) {
+        const t = svgEl('text', { x: x0 + bw, y: H - 6, 'text-anchor': 'middle', 'font-size': '8', 'font-weight': '700' });
+        t.style.fill = 'var(--ink)'; t.textContent = '이번주'; svg.appendChild(t);
+      } else if (i % 2 === 0) {
+        const t = svgEl('text', { x: x0 + bw, y: H - 6, 'text-anchor': 'middle', 'font-size': '8' });
+        t.style.fill = 'var(--ink-3)'; t.textContent = `${8 - i}주 전`; svg.appendChild(t);
+      }
+    });
+    // direct labels on the newest pair
+    const lastX = PL + 7 * gw + (gw - bw * 2 - 2) / 2;
+    const l1 = svgEl('text', { x: lastX + bw / 2, y: PT + (1 - warn[7] / max) * (H - PT - PB) - 3, 'text-anchor': 'middle', 'font-size': '8.5', 'font-weight': '700' });
+    l1.style.fill = 'var(--ink-2)'; l1.textContent = warn[7]; svg.appendChild(l1);
+    const l2 = svgEl('text', { x: lastX + bw + 2 + bw / 2, y: PT + (1 - crit[7] / max) * (H - PT - PB) - 3, 'text-anchor': 'middle', 'font-size': '8.5', 'font-weight': '700' });
+    l2.style.fill = 'var(--ink-2)'; l2.textContent = crit[7]; svg.appendChild(l2);
+    document.getElementById('c-weekly').appendChild(svg);
+  })();
+</script>
