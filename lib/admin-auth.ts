@@ -30,9 +30,14 @@ export async function isAdmin(): Promise<boolean> {
 
 export async function signIn(): Promise<void> {
   const jar = await cookies();
+  // HTTPS 배포(Vercel 등)에서는 Secure 쿠키 사용. COOKIE_SECURE=true/false 로 강제 지정 가능.
+  const secure = process.env.COOKIE_SECURE
+    ? process.env.COOKIE_SECURE === "true"
+    : !!process.env.VERCEL;
   jar.set(COOKIE, token(), {
     httpOnly: true,
     sameSite: "lax",
+    secure,
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
