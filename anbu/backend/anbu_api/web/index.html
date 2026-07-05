@@ -137,16 +137,29 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // 데모 시드가 현재 시각 기준으로 생성되므로 모든 조회에 같은 now를 쓴다
+  // URL 파라미터로 개인 테스트 계정을 지정할 수 있다:
+  //   ?senior=me&gkey=<보호자키>   → 자녀 앱이 그 대상자를 보여준다
+  //   ?org_key=<조직키>            → 운영 모드 관제 콘솔 접근
+  //   ?view=guardian               → 자녀 앱 화면으로 시작
+  const P = new URLSearchParams(location.search);
+  const SID = P.get('senior') || 's06';
+  const AUTH_HEADERS = {};
+  if (P.get('org_key')) AUTH_HEADERS['X-API-Key'] = P.get('org_key');
+  const G_HEADERS = P.get('gkey') ? { 'X-Guardian-Key': P.get('gkey') } : AUTH_HEADERS;
+
+  // 데모 시드가 현재 시각 기준으로 생성되므로 모든 조회에 같은 now를 쓴다.
+  // 개인 테스트(실데이터)에서는 서버 시간을 그대로 쓰도록 now를 생략한다.
   const NOW = new Date();
-  const nowParam = () => `now=${encodeURIComponent(NOW.toISOString().slice(0, 19))}`;
+  const PERSONAL = !!(P.get('gkey') || P.get('org_key'));
+  const nowParam = () => PERSONAL ? '' : `now=${encodeURIComponent(NOW.toISOString().slice(0, 19))}`;
 
   const $ = id => document.getElementById(id);
   function toast(msg) {
     const t = $('toast'); t.textContent = msg; t.style.opacity = '1';
     clearTimeout(t._h); t._h = setTimeout(() => t.style.opacity = '0', 2200);
   }
-  async function api(path, opts) {
+  async function api(path, opts = {}) {
+    opts.headers = { ...(opts.headers || {}), ...AUTH_HEADERS };
     const r = await fetch(path, opts);
     if (!r.ok) throw new Error(`${path} → ${r.status}`);
     return r.json();
@@ -163,6 +176,8 @@
   const SEV_COLOR = { '긴급': 'var(--critical)', '주의': 'var(--warning)', '점검': 'var(--ink-3)' };
 
   async function renderConsole() {
+    // 개인/운영 모드에서는 대시보드가 감지도 직접 돌린다 (운영은 스케줄러 담당)
+    if (PERSONAL) await api(`/v1/console/recompute?${nowParam()}`, { method: 'POST' }).catch(() => {});
     const kpi = await api(`/v1/console/kpis?${nowParam()}`);
     $('kpis').innerHTML = `
       <div class="card kpi"><span class="stripe" style="background:var(--good)"></span>
@@ -210,7 +225,7 @@
   }
 
   async function renderGuardian() {
-    const g = await api(`/v1/guardian/s06/today?${nowParam()}`);
+    const g = await api(`/v1/guardian/${SID}/today?${nowParam()}`, { headers: G_HEADERS });
     const ok = !g.signals.length;
     const worst = g.signals[0];
     const ringCol = ok ? 'var(--good)' : (worst.severity === '긴급' ? 'var(--critical)' : 'var(--warning)');
@@ -267,9 +282,13 @@
   }
 
   (async () => {
-    // 첫 방문에 데이터가 없으면 자동 시드
-    const kpi = await api(`/v1/console/kpis?${nowParam()}`);
-    if (kpi.total_seniors === 0) await reseed(); else refresh();
+    if (P.get('view') === 'guardian') { setMode('guardian'); }
+    else if (PERSONAL) { refresh(); }
+    else {
+      // 데모 모드: 첫 방문에 데이터가 없으면 자동 시드
+      const kpi = await api(`/v1/console/kpis?${nowParam()}`);
+      if (kpi.total_seniors === 0) await reseed(); else refresh();
+    }
     setInterval(refresh, 15000);
   })();
 </script>

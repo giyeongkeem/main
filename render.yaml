@@ -11,3 +11,24 @@ services:
         sync: false        # 대시보드에서 직접 입력 (시크릿)
       - key: APP_PASSWORD
         sync: false        # 공개 URL 접속용 비밀번호 (직접 입력)
+
+  # 안부 — 웨어러블 시니어 케어 API (개인 애플워치 테스트용 공개 배포)
+  # 배포 후 Environment 탭에서 ANBU_SETUP_CODE에 임의의 비밀 문자열을 입력하고,
+  # anbu/docs/personal-testing.md 절차대로 본인을 등록하면 된다.
+  # 주의: free 플랜은 디스크가 없어 재배포/재시작 시 데이터가 초기화된다.
+  #       개인 테스트에는 충분하고, 유지가 필요하면 starter 플랜 + disk를 붙인다.
+  - type: web
+    name: anbu-api
+    runtime: docker
+    plan: free
+    dockerfilePath: anbu/backend/Dockerfile
+    dockerContext: anbu/backend
+    envVars:
+      - key: ANBU_REQUIRE_AUTH
+        value: "1"
+      - key: ANBU_SETUP_CODE
+        sync: false        # 개인 등록용 비밀 코드 (직접 입력)
+      - key: ANBU_TZ_OFFSET_HOURS
+        value: "9"         # 한국 시간 벽시계 기준 감지 (기상 지연 등)
+      - key: ANBU_DB
+        value: /tmp/anbu.db

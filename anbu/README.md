@@ -18,10 +18,20 @@ uvicorn anbu_api.main:app --port 8000
 ```
 
 ```bash
-python -m pytest tests/ -q        # 단위·통합 테스트 25개
+python -m pytest tests/ -q        # 단위·통합 테스트 28개
 python ../scripts/simulate.py     # 터미널 엔드투엔드 데모 (서버 불필요)
 docker build -t anbu . && docker run -p 8000:8000 -v anbu-data:/data anbu   # 운영 모드
 ```
+
+## 내 애플워치로 직접 테스트
+
+앱 빌드 없이 본인 워치+아이폰으로 전체 파이프라인을 돌려볼 수 있다 —
+**[docs/personal-testing.md](docs/personal-testing.md)** 참고. 요약:
+
+1. Render 무료 배포(리포 루트 `render.yaml`에 `anbu-api` 서비스 포함) 또는 로컬 실행
+2. `POST /v1/personal/register` 한 번 → HAE URL·대시보드 URL 일체 발급
+3. 아이폰 **Health Auto Export** 앱이 워치 데이터를 그 URL로 POST
+4. `guardian_dashboard` URL에서 내 실제 기상·걸음·심박으로 렌더링 확인
 
 ## 구성
 

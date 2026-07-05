@@ -195,3 +195,78 @@ def test_watch_cannot_touch_other_seniors_alert(strict_client):
                             headers={"Authorization": f"Bearer {c2['device_token']}"},
                             json={"action": "resolve"})
     assert r2.status_code == 404
+
+
+# ---------- 개인 애플워치 테스트 경로 (Health Auto Export) ----------
+
+def _hae_payload(day_offset=1):
+    d = (NOW - timedelta(days=day_offset)).date().isoformat()
+    return {
+        "data": {"metrics": [
+            {"name": "step_count", "units": "count", "data": [
+                {"date": f"{d} 09:00:00 +0900", "qty": 1200},
+                {"date": f"{d} 15:00:00 +0900", "qty": 2600},
+            ]},
+            {"name": "resting_heart_rate", "units": "count/min", "data": [
+                {"date": f"{d} 00:00:00 +0900", "qty": 58},
+            ]},
+            {"name": "sleep_analysis", "units": "hr", "data": [
+                {"date": f"{d} 06:35:00 +0900", "asleep": 7.2,
+                 "sleepStart": f"{(NOW - timedelta(days=day_offset+1)).date().isoformat()} 23:20:00 +0900",
+                 "sleepEnd": f"{d} 06:35:00 +0900"},
+            ]},
+        ]}
+    }
+
+
+def test_health_auto_export_adapter(client):
+    _register(client)
+    r = client.post("/v1/adapters/health-auto-export/p1",
+                    params={"now": NOW.isoformat()}, json=_hae_payload())
+    assert r.status_code == 200, r.text
+
+    from anbu_api.main import _load_days, conn
+    day = (NOW - timedelta(days=1)).date()
+    d = next(x for x in _load_days(conn(), "p1") if x.day == day)
+    assert d.steps == 3800          # 두 구간 합산
+    assert d.wake_time == 395       # sleepEnd 06:35
+    assert d.night_hr == 58         # 안정 시 심박 대용
+
+    # 같은 페이로드 재전송(HAE 중복 동기화) → 걸음이 두 배가 되면 안 된다
+    client.post("/v1/adapters/health-auto-export/p1",
+                params={"now": NOW.isoformat()}, json=_hae_payload())
+    d = next(x for x in _load_days(conn(), "p1") if x.day == day)
+    assert d.steps == 3800
+
+
+def test_adapter_device_token_query_auth(strict_client):
+    org = strict_client.post("/v1/orgs", json={"id": "gu5", "name": "테스트구"}).json()
+    creds = _register(strict_client, headers={"X-API-Key": org["api_key"]})
+    # 토큰 없이 → 401, 틀린 토큰 → 401, 맞는 토큰(쿼리) → 200
+    assert strict_client.post("/v1/adapters/hae/p1", json=_hae_payload()).status_code == 401
+    assert strict_client.post("/v1/adapters/hae/p1", params={"token": "wrong"},
+                              json=_hae_payload()).status_code == 401
+    r = strict_client.post("/v1/adapters/hae/p1",
+                           params={"token": creds["device_token"], "now": NOW.isoformat()},
+                           json=_hae_payload())
+    assert r.status_code == 200
+
+
+def test_personal_register_flow(strict_client, monkeypatch):
+    monkeypatch.setenv("ANBU_SETUP_CODE", "secret42")
+    assert strict_client.post("/v1/personal/register",
+                              json={"name": "기영"}).status_code == 401
+    r = strict_client.post("/v1/personal/register", params={"code": "secret42"},
+                           json={"name": "기영", "age": 30})
+    assert r.status_code == 201
+    body = r.json()
+    assert body["id"] == "me" and "token=" in body["hae_url"] and "gkey=" in body["guardian_dashboard"]
+
+    # 발급된 자격 증명이 실제로 동작하는지: HAE 인제스트 → 보호자 조회
+    r2 = strict_client.post("/v1/adapters/hae/me",
+                            params={"token": body["device_token"], "now": NOW.isoformat()},
+                            json=_hae_payload())
+    assert r2.status_code == 200
+    g = strict_client.get("/v1/guardian/me/today", params={"now": NOW.isoformat()},
+                          headers={"X-Guardian-Key": body["guardian_key"]})
+    assert g.status_code == 200 and g.json()["senior"]["name"] == "기영"

@@ -15,7 +15,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from datetime import timedelta
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -41,7 +43,11 @@ def conn():
 
 
 def _now(now: Optional[datetime] = Query(default=None, description="시뮬레이션용 현재 시각 오버라이드")) -> datetime:
-    return now or datetime.now()
+    if now:
+        return now
+    # UTC 서버에서 사용자 벽시계(예: KST) 의미론을 맞추기 위한 오프셋 (Render 배포 시 9)
+    offset = float(os.environ.get("ANBU_TZ_OFFSET_HOURS", "0"))
+    return datetime.now() + timedelta(hours=offset)
 
 
 def _org(x_api_key: Optional[str] = Header(default=None)):
@@ -132,17 +138,70 @@ def report_fall(sid: str, body: FallIn, now: datetime = Depends(_now),
 
 @app.post("/v1/adapters/{vendor}/{sid}")
 def vendor_webhook(vendor: str, sid: str, payload: dict,
-                   now: datetime = Depends(_now), org=Depends(_org)):
-    """핏빗/삼성헬스 서버-투-서버 동기화. 조직 키로 인증한다."""
+                   now: datetime = Depends(_now),
+                   token: Optional[str] = Query(default=None, description="디바이스 토큰 (개인 테스트용 — 헤더 설정이 어려운 앱을 위해 쿼리로도 허용)"),
+                   x_api_key: Optional[str] = Header(default=None)):
+    """핏빗/삼성헬스/Health Auto Export 동기화.
+
+    인증 2택: 조직 키(서버-투-서버) 또는 본인 디바이스 토큰(?token= — HAE처럼
+    헤더 커스터마이즈가 번거로운 개인용 앱 경로).
+    """
     normalize = NORMALIZERS.get(vendor)
     if normalize is None:
         raise HTTPException(404, f"지원하지 않는 벤더: {vendor} (지원: {', '.join(NORMALIZERS)})")
-    senior = conn().execute("SELECT * FROM seniors WHERE id=? AND org_id=?", (sid, org["id"])).fetchone()
-    if senior is None:
-        raise HTTPException(404, "이 조직에 등록되지 않은 대상자")
+    c = conn()
+    if token:
+        senior = c.execute("SELECT * FROM seniors WHERE id=?", (sid,)).fetchone()
+        if senior is None or senior["device_token"] != token:
+            raise HTTPException(401, "디바이스 토큰 불일치")
+    else:
+        org = auth.require_org(c, x_api_key)
+        senior = c.execute("SELECT * FROM seniors WHERE id=? AND org_id=?", (sid, org["id"])).fetchone()
+        if senior is None:
+            raise HTTPException(404, "이 조직에 등록되지 않은 대상자")
     samples = normalize(payload)
-    accepted = apply_samples(conn(), sid, samples, now=now)
+    accepted = apply_samples(c, sid, samples, now=now)
     return {"ok": True, "normalized": len(samples), "accepted": accepted}
+
+
+# ---------- 개인 테스트 온보딩 ----------
+
+class PersonalIn(BaseModel):
+    name: str
+    age: int = 30
+    id: str = "me"
+
+
+@app.post("/v1/personal/register", status_code=201)
+def personal_register(body: PersonalIn, request: Request,
+                      code: Optional[str] = Query(default=None)):
+    """본인 애플워치 테스트용 원스텝 온보딩 — 등록 + 연동 URL 일체 발급.
+
+    운영 모드에서는 ANBU_SETUP_CODE 환경변수와 일치하는 ?code= 가 필요하다.
+    """
+    setup_code = os.environ.get("ANBU_SETUP_CODE")
+    if os.environ.get("ANBU_REQUIRE_AUTH") == "1":
+        if not setup_code:
+            raise HTTPException(403, "서버에 ANBU_SETUP_CODE가 설정되지 않았습니다")
+        if code != setup_code:
+            raise HTTPException(401, "설정 코드(?code=)가 일치하지 않습니다")
+    c = conn()
+    org = c.execute("SELECT * FROM orgs WHERE id='personal'").fetchone()
+    if org is None:
+        api_key = store.create_org(c, "personal", "개인 테스트")
+    else:
+        api_key = org["api_key"]
+    creds = store.upsert_senior(c, body.id, "personal", body.name, body.age,
+                                "본인", "개인 테스트", "b2c")
+    base = str(request.base_url).rstrip("/")
+    return {
+        "ok": True, "id": body.id, **creds, "org_api_key": api_key,
+        "hae_url": f"{base}/v1/adapters/health-auto-export/{body.id}?token={creds['device_token']}",
+        "guardian_dashboard": f"{base}/app/?view=guardian&senior={body.id}&gkey={creds['guardian_key']}",
+        "console_dashboard": f"{base}/app/?org_key={api_key}",
+        "next": "아이폰 'Health Auto Export' 앱 → REST API 자동화에 hae_url을 붙여넣으세요. "
+                "자세한 절차는 anbu/docs/personal-testing.md 참고.",
+    }
 
 
 # ---------- 감지 실행 ----------
