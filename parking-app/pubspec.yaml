@@ -1,0 +1,39 @@
+name: eodijucha
+description: "어디주차 — 지하 층수까지 기록하는 주차 위치 앱 (iOS/Android)"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 저장
+  shared_preferences: ^2.3.2
+  path_provider: ^2.1.4
+
+  # 위치 (GPS + 역지오코딩)
+  geolocator: ^13.0.1
+  geocoding: ^3.0.0
+
+  # 기압계(지하 층수 추정)
+  sensors_plus: ^6.1.0
+
+  # 사진 + 온디바이스 OCR (오프라인 동작)
+  image_picker: ^1.1.2
+  google_mlkit_text_recognition: ^0.13.0
+
+  # 공유 / 지도 열기 / 딥링크(?quick)
+  share_plus: ^10.0.0
+  url_launcher: ^6.3.0
+  app_links: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
