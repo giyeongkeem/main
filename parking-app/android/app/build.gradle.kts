@@ -35,8 +35,17 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
+}
+
+dependencies {
+    // ML Kit 한국어 텍스트 인식 — Flutter 플러그인은 라틴 문자만 기본 포함하므로 직접 추가
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
 }
 
 flutter {
