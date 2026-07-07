@@ -5,3 +5,4 @@ __pycache__/
 logs/
 .obsidian/
 .DS_Store
+tax_invoices.db*

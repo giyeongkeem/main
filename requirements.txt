@@ -3,3 +3,5 @@ PyYAML>=6.0
 fastapi>=0.110
 uvicorn>=0.29
 markdown>=3.5
+# 전자세금계산서 서비스에서 팝빌(국세청 전송) 연동을 쓰려면 주석 해제
+# popbill>=1.59
