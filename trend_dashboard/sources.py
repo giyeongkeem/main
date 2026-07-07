@@ -3,10 +3,13 @@
 수집 소스:
   - YouTube  : 인기 급상승 페이지(ytInitialData) 파싱. YOUTUBE_API_KEY가 있으면
                공식 Data API(mostPopular)로 대체 (더 안정적).
-  - TikTok   : 크리에이티브 센터의 인기 해시태그 API (비공식, 무인증).
-  - Google   : 실시간 검색 트렌드 RSS (플랫폼을 가로지르는 '지금 뜨는 것' 신호).
+               썸네일은 i.ytimg.com 규칙 URL, 재생은 youtube.com/embed 임베드.
+  - TikTok   : 크리에이티브 센터의 인기 '영상'(커버 이미지 + embed/v2 재생)과
+               인기 해시태그(칩). 영상 수집이 막히면 해시태그 목록으로 폴백.
+  - Google   : 실시간 검색 트렌드 RSS (관련 이미지 포함).
   - Instagram: 공개 트렌드 API가 없어 Google News RSS에서 릴스/트렌드 관련
-               기사를 모아 뉴스 기반으로 보여준다 (카드에 명시).
+               기사를 모으고, 기사 원문의 og:image로 사진을 붙인다.
+               기사가 인스타그램 게시물 링크면 임베드로 바로 재생/표시.
 
 각 수집기는 실패해도 예외를 밖으로 던지지 않고 SourceResult.error에 담아
 대시보드가 부분적으로라도 항상 뜨게 한다.
@@ -14,6 +17,7 @@
 
 from __future__ import annotations
 
+import base64
 import gzip
 import json
 import re
@@ -21,6 +25,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -45,6 +50,7 @@ class TrendItem:
     metric: str = ""      # 조회수·게시물 수·검색량 등
     extra: str = ""       # 채널명·언론사·관련 기사 등
     thumbnail: str = ""
+    embed: str = ""       # 있으면 클릭 시 페이지 안에서 바로 재생
     rank: int = 0
 
 
@@ -54,6 +60,7 @@ class SourceResult:
     region: str           # kr | global
     label: str
     items: list[TrendItem] = field(default_factory=list)
+    chips: list[dict] = field(default_factory=list)   # 보조 목록 (예: 틱톡 해시태그)
     error: str = ""
     note: str = ""
 
@@ -64,6 +71,7 @@ class SourceResult:
             "label": self.label,
             "error": self.error,
             "note": self.note,
+            "chips": self.chips,
             "items": [vars(i) for i in self.items],
         }
 
@@ -130,16 +138,29 @@ def _yt_text(obj: dict | None) -> str:
     return "".join(r.get("text", "") for r in runs)
 
 
+def _yt_item(vid: str, title: str, metric: str, extra: str, rank: int) -> TrendItem:
+    # 썸네일/임베드는 videoId로 규칙적으로 만들 수 있어 항상 연동된다.
+    return TrendItem(
+        title=title,
+        url=f"https://www.youtube.com/watch?v={vid}",
+        metric=metric,
+        extra=extra,
+        thumbnail=f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg",
+        embed=f"https://www.youtube.com/embed/{vid}?autoplay=1",
+        rank=rank,
+    )
+
+
 def fetch_youtube(region: str, api_key: str = "") -> SourceResult:
     r = SourceResult("youtube", region, "YouTube 인기 급상승")
     p = REGIONS[region]
     try:
         if api_key:
             r.items = _youtube_via_api(p["gl"], api_key)
-            r.note = "YouTube Data API 기준"
+            r.note = "YouTube Data API 기준 · 클릭하면 바로 재생"
         else:
             r.items = _youtube_via_scrape(p["gl"], p["hl"])
-            r.note = "인기 급상승 페이지 기준"
+            r.note = "인기 급상승 기준 · 클릭하면 바로 재생"
         if not r.items:
             r.error = "인기 동영상을 찾지 못했습니다 (페이지 구조 변경 가능성)."
     except Exception as e:
@@ -159,17 +180,13 @@ def _youtube_via_scrape(gl: str, hl: str) -> list[TrendItem]:
         if not vid or not title or vid in seen:
             continue
         seen.add(vid)
-        thumbs = (v.get("thumbnail") or {}).get("thumbnails") or []
         views = _yt_text(v.get("shortViewCountText")) or _yt_text(v.get("viewCountText"))
         channel = _yt_text(v.get("ownerText")) or _yt_text(v.get("shortBylineText"))
         published = _yt_text(v.get("publishedTimeText"))
-        items.append(TrendItem(
-            title=title,
-            url=f"https://www.youtube.com/watch?v={vid}",
-            metric=views,
-            extra=" · ".join(x for x in (channel, published) if x),
-            thumbnail=thumbs[0]["url"] if thumbs else "",
-            rank=len(items) + 1,
+        items.append(_yt_item(
+            vid, title, views,
+            " · ".join(x for x in (channel, published) if x),
+            len(items) + 1,
         ))
         if len(items) >= MAX_ITEMS:
             break
@@ -185,57 +202,111 @@ def _youtube_via_api(gl: str, api_key: str) -> list[TrendItem]:
     items: list[TrendItem] = []
     for i, v in enumerate(data.get("items", []), 1):
         sn, st = v.get("snippet", {}), v.get("statistics", {})
-        thumbs = sn.get("thumbnails", {})
-        thumb = (thumbs.get("medium") or thumbs.get("default") or {}).get("url", "")
         views = _fmt_count(int(st.get("viewCount", 0)))
-        items.append(TrendItem(
-            title=sn.get("title", ""),
-            url=f"https://www.youtube.com/watch?v={v.get('id', '')}",
-            metric=f"조회수 {views}회" if views else "",
-            extra=sn.get("channelTitle", ""),
-            thumbnail=thumb,
-            rank=i,
+        items.append(_yt_item(
+            v.get("id", ""), sn.get("title", ""),
+            f"조회수 {views}회" if views else "",
+            sn.get("channelTitle", ""), i,
         ))
     return items
 
 
 # ---------------------------------------------------------------- TikTok
 
+_TT_HEADERS = {
+    "Referer": "https://ads.tiktok.com/business/creativecenter/inspiration/popular/pc/en",
+    "Accept": "application/json",
+}
+# 크리에이티브 센터 CDN 커버는 리퍼러/만료 제약이 있어 서버 프록시(/api/img)로 우회한다.
+TIKTOK_IMG_HOSTS = (".tiktokcdn.com", ".tiktokcdn-us.com", ".ttwstatic.com",
+                    ".ibyteimg.com", ".byteimg.com")
+
+
+def _tiktok_api(path: str, params: dict) -> dict:
+    url = f"https://ads.tiktok.com/creative_radar_api/v1/{path}?{urllib.parse.urlencode(params)}"
+    data = json.loads(_http_get(url, headers=_TT_HEADERS))
+    if data.get("code") != 0:
+        raise ValueError(data.get("msg") or f"API 응답 코드 {data.get('code')}")
+    return data.get("data") or {}
+
+
+def _proxy_img(url: str) -> str:
+    if not url:
+        return ""
+    host = urllib.parse.urlparse(url).hostname or ""
+    if any(host.endswith(sfx) for sfx in TIKTOK_IMG_HOSTS):
+        return "/api/img?u=" + urllib.parse.quote(url, safe="")
+    return url
+
+
+def _tt_video_item(v: dict, rank: int) -> TrendItem | None:
+    vid = str(v.get("item_id") or v.get("id") or "")
+    cover = v.get("cover_url") or v.get("cover") or v.get("origin_cover") or ""
+    if isinstance(cover, list):
+        cover = cover[0] if cover else ""
+    title = (v.get("title") or v.get("desc") or "").strip() or "TikTok 인기 영상"
+    link = v.get("tt_link") or v.get("item_url") or v.get("share_url") or ""
+    if not link and vid:
+        link = f"https://www.tiktok.com/embed/v2/{vid}"
+    if not (vid or link):
+        return None
+    views = _fmt_count(v.get("vv") or v.get("video_views") or v.get("play_count"))
+    return TrendItem(
+        title=title,
+        url=link,
+        metric=f"조회 {views}" if views else "",
+        thumbnail=_proxy_img(cover),
+        embed=f"https://www.tiktok.com/embed/v2/{vid}" if vid else "",
+        rank=rank,
+    )
+
+
 def fetch_tiktok(region: str) -> SourceResult:
-    r = SourceResult("tiktok", region, "TikTok 인기 해시태그",
-                     note="크리에이티브 센터 · 최근 7일 기준")
+    r = SourceResult("tiktok", region, "TikTok 인기 영상",
+                     note="크리에이티브 센터 · 최근 7일 · 클릭하면 바로 재생")
     p = REGIONS[region]
-    q = urllib.parse.urlencode({
-        "page": 1, "limit": MAX_ITEMS, "period": 7,
-        "country_code": p["gl"], "sort_by": "popular",
-    })
-    url = f"https://ads.tiktok.com/creative_radar_api/v1/popular_trend/hashtag/list?{q}"
+    base = {"page": 1, "limit": MAX_ITEMS, "period": 7, "country_code": p["gl"]}
+
+    # 인기 해시태그 → 카드 상단 칩
+    tag_err = ""
     try:
-        data = json.loads(_http_get(url, headers={
-            "Referer": "https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/en",
-            "Accept": "application/json",
-        }))
-        if data.get("code") != 0:
-            raise ValueError(data.get("msg") or f"API 응답 코드 {data.get('code')}")
-        for h in (data.get("data") or {}).get("list") or []:
+        data = _tiktok_api("popular_trend/hashtag/list", {**base, "sort_by": "popular"})
+        for h in data.get("list") or []:
             name = h.get("hashtag_name", "")
             if not name:
                 continue
-            posts = _fmt_count(h.get("publish_cnt"))
             views = _fmt_count(h.get("video_views"))
-            metric = " · ".join(x for x in (
-                f"게시물 {posts}" if posts else "", f"조회 {views}" if views else "",
-            ) if x)
-            r.items.append(TrendItem(
-                title=f"#{name}",
-                url=f"https://www.tiktok.com/tag/{urllib.parse.quote(name)}",
-                metric=metric,
-                rank=h.get("rank") or len(r.items) + 1,
-            ))
-        if not r.items:
-            r.error = "해시태그 목록이 비어 있습니다 (API 응답 변경 가능성)."
+            r.chips.append({
+                "title": f"#{name}",
+                "url": f"https://www.tiktok.com/tag/{urllib.parse.quote(name)}",
+                "metric": f"조회 {views}" if views else "",
+            })
     except Exception as e:
-        r.error = f"수집 실패: {e}"
+        tag_err = str(e)
+
+    # 인기 영상 (엔드포인트가 여러 번 바뀌어 후보를 순서대로 시도)
+    vid_errs = []
+    for path in ("popular_trend/video/list", "popular_trend/list"):
+        try:
+            data = _tiktok_api(path, {**base, "order_by": "vv"})
+            raw = data.get("videos") or data.get("list") or data.get("items") or []
+            items = [it for i, v in enumerate(raw, 1) if (it := _tt_video_item(v, i))]
+            if items:
+                r.items = items[:MAX_ITEMS]
+                break
+        except Exception as e:
+            vid_errs.append(f"{path}: {e}")
+
+    if not r.items:
+        if r.chips:
+            # 영상 수집이 막히면 해시태그를 본문 목록으로 보여준다.
+            r.label = "TikTok 인기 해시태그"
+            r.note = "크리에이티브 센터 · 최근 7일 기준 (영상 목록은 일시적으로 수집 불가)"
+            r.items = [TrendItem(title=c["title"], url=c["url"], metric=c["metric"], rank=i)
+                       for i, c in enumerate(r.chips, 1)]
+            r.chips = []
+        else:
+            r.error = "수집 실패: " + "; ".join(vid_errs + ([tag_err] if tag_err else []))[:300]
     return r
 
 
@@ -252,11 +323,13 @@ def fetch_google_trends(region: str) -> SourceResult:
             title = (item.findtext("title") or "").strip()
             if not title:
                 continue
-            traffic, news_title, news_url = "", "", ""
+            traffic, picture, news_title, news_url = "", "", "", ""
             for child in item:
                 tag = child.tag.rsplit("}", 1)[-1]
                 if tag == "approx_traffic" and child.text:
                     traffic = child.text.strip()
+                elif tag == "picture" and child.text:
+                    picture = child.text.strip()
                 elif tag == "news_item" and not news_title:
                     for sub in child:
                         stag = sub.tag.rsplit("}", 1)[-1]
@@ -264,11 +337,14 @@ def fetch_google_trends(region: str) -> SourceResult:
                             news_title = sub.text.strip()
                         elif stag == "news_item_url" and sub.text:
                             news_url = sub.text.strip()
+                        elif stag == "news_item_picture" and sub.text and not picture:
+                            picture = sub.text.strip()
             r.items.append(TrendItem(
                 title=title,
                 url=news_url or "https://www.google.com/search?q=" + urllib.parse.quote(title),
                 metric=f"검색량 {traffic}" if traffic else "",
                 extra=news_title,
+                thumbnail=picture,
                 rank=len(r.items) + 1,
             ))
             if len(r.items) >= MAX_ITEMS:
@@ -287,10 +363,41 @@ _IG_QUERY = {
     "global": 'Instagram (Reels OR trend OR trending OR viral OR meme) when:7d',
 }
 
+_IG_POST_RE = re.compile(r"instagram\.com/(?:p|reel|reels|tv)/[\w-]+")
+
+
+def _decode_gnews_url(link: str) -> str:
+    """Google News RSS의 리다이렉트 링크에서 원문 기사 URL을 복원한다 (가능한 경우)."""
+    m = re.search(r"news\.google\.com/(?:rss/)?articles/([^?/&]+)", link)
+    if not m:
+        return link
+    token = m.group(1)
+    try:
+        raw = base64.urlsafe_b64decode(token + "=" * (-len(token) % 4))
+        urls = re.findall(rb"https?://[ -~]+?(?=[^ -~]|$)", raw)
+        for u in urls:
+            s = u.decode("ascii", "ignore")
+            if "google.com" not in s:
+                return s
+    except Exception:
+        pass
+    return link
+
+
+def _og_image(url: str) -> str:
+    """기사 페이지의 og:image를 가져온다 (실패 시 빈 문자열)."""
+    try:
+        html = _http_get(url, timeout=8).decode("utf-8", "replace")
+        m = (re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)', html)
+             or re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image', html))
+        return m.group(1).strip() if m else ""
+    except Exception:
+        return ""
+
 
 def fetch_instagram(region: str) -> SourceResult:
     r = SourceResult("instagram", region, "Instagram 트렌드 소식",
-                     note="공개 트렌드 API가 없어 최근 7일 관련 뉴스로 집계")
+                     note="공개 트렌드 API가 없어 최근 7일 관련 뉴스·게시물로 집계")
     p = REGIONS[region]
     q = urllib.parse.quote(_IG_QUERY[region])
     hl, gl = p["news_hl"], p["news_gl"]
@@ -302,15 +409,26 @@ def fetch_instagram(region: str) -> SourceResult:
             if not title:
                 continue
             src = item.find("source")
+            link = _decode_gnews_url((item.findtext("link") or "").strip())
             r.items.append(TrendItem(
                 title=title,
-                url=(item.findtext("link") or "").strip(),
+                url=link,
                 extra=(src.text.strip() if src is not None and src.text else ""),
                 metric=(item.findtext("pubDate") or "").strip()[:16],
                 rank=len(r.items) + 1,
             ))
-            if len(r.items) >= 12:
+            if len(r.items) >= 10:
                 break
+
+        # 기사 원문에서 대표 이미지(og:image)를 병렬로 가져와 사진을 붙인다.
+        decodable = [it for it in r.items if "news.google.com" not in it.url]
+        if decodable:
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                for it, img in zip(decodable, pool.map(lambda i: _og_image(i.url), decodable)):
+                    it.thumbnail = img
+                    m = _IG_POST_RE.search(it.url)
+                    if m:
+                        it.embed = f"https://{m.group(0)}/embed"
         if not r.items:
             r.error = "관련 뉴스를 찾지 못했습니다."
     except Exception as e:
@@ -351,8 +469,9 @@ def cross_platform_keywords(sources: list[SourceResult], top: int = 14) -> list[
     freq: dict[str, int] = {}
     platforms: dict[str, set[str]] = {}
     for s in sources:
-        for item in s.items:
-            for kw in _keywords_of(f"{item.title} {item.extra}"):
+        texts = [f"{i.title} {i.extra}" for i in s.items] + [c["title"] for c in s.chips]
+        for text in texts:
+            for kw in _keywords_of(text):
                 freq[kw] = freq.get(kw, 0) + 1
                 platforms.setdefault(kw, set()).add(s.platform)
     ranked = sorted(
