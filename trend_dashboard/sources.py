@@ -76,16 +76,17 @@ class SourceResult:
         }
 
 
-def _http_get(url: str, headers: dict | None = None, timeout: int = 20) -> bytes:
+def _http_get(url: str, headers: dict | None = None, timeout: int = 20,
+              data: bytes | None = None) -> bytes:
     h = {"User-Agent": _UA, "Accept-Language": "ko,en;q=0.8"}
     if headers:
         h.update(headers)
-    req = urllib.request.Request(url, headers=h)
+    req = urllib.request.Request(url, headers=h, data=data)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        data = resp.read()
-        if resp.headers.get("Content-Encoding") == "gzip" or data[:2] == b"\x1f\x8b":
-            data = gzip.decompress(data)
-        return data
+        body = resp.read()
+        if resp.headers.get("Content-Encoding") == "gzip" or body[:2] == b"\x1f\x8b":
+            body = gzip.decompress(body)
+        return body
 
 
 def _fmt_count(n: int | float | None) -> str:
@@ -154,17 +155,26 @@ def _yt_item(vid: str, title: str, metric: str, extra: str, rank: int) -> TrendI
 def fetch_youtube(region: str, api_key: str = "") -> SourceResult:
     r = SourceResult("youtube", region, "YouTube 인기 급상승")
     p = REGIONS[region]
-    try:
-        if api_key:
+    if api_key:
+        try:
             r.items = _youtube_via_api(p["gl"], api_key)
             r.note = "YouTube Data API 기준 · 클릭하면 바로 재생"
-        else:
-            r.items = _youtube_via_scrape(p["gl"], p["hl"])
-            r.note = "인기 급상승 기준 · 클릭하면 바로 재생"
-        if not r.items:
-            r.error = "인기 동영상을 찾지 못했습니다 (페이지 구조 변경 가능성)."
-    except Exception as e:
-        r.error = f"수집 실패: {e}"
+        except Exception as e:
+            r.error = f"수집 실패: {e}"
+        return r
+
+    # 키 없는 경로: 트렌딩 페이지 → 실패 시 Innertube(내부 JSON API) 순으로 시도.
+    r.note = "인기 급상승 기준 · 클릭하면 바로 재생"
+    errs = []
+    for name, fn in (("페이지", _youtube_via_scrape), ("innertube", _youtube_via_innertube)):
+        try:
+            r.items = fn(p["gl"], p["hl"])
+            if r.items:
+                return r
+            errs.append(f"{name}: 결과 없음")
+        except Exception as e:
+            errs.append(f"{name}: {e}")
+    r.error = "수집 실패: " + "; ".join(errs)
     return r
 
 
@@ -172,6 +182,38 @@ def _youtube_via_scrape(gl: str, hl: str) -> list[TrendItem]:
     url = f"https://www.youtube.com/feed/trending?gl={gl}&hl={hl}"
     html = _http_get(url, headers={"Cookie": "CONSENT=YES+cb; SOCS=CAI"}).decode("utf-8", "replace")
     data = _extract_yt_initial_data(html)
+    items: list[TrendItem] = []
+    seen: set[str] = set()
+    for v in _walk_video_renderers(data):
+        vid = v.get("videoId", "")
+        title = _yt_text(v.get("title"))
+        if not vid or not title or vid in seen:
+            continue
+        seen.add(vid)
+        views = _yt_text(v.get("shortViewCountText")) or _yt_text(v.get("viewCountText"))
+        channel = _yt_text(v.get("ownerText")) or _yt_text(v.get("shortBylineText"))
+        published = _yt_text(v.get("publishedTimeText"))
+        items.append(_yt_item(
+            vid, title, views,
+            " · ".join(x for x in (channel, published) if x),
+            len(items) + 1,
+        ))
+        if len(items) >= MAX_ITEMS:
+            break
+    return items
+
+
+def _youtube_via_innertube(gl: str, hl: str) -> list[TrendItem]:
+    """youtube.com이 봇 차단 페이지를 줄 때를 대비한 내부 JSON API 경로 (키 불필요)."""
+    body = json.dumps({
+        "context": {"client": {"clientName": "WEB", "clientVersion": "2.20240701.00.00",
+                               "gl": gl, "hl": hl}},
+        "browseId": "FEtrending",
+    }).encode()
+    data = json.loads(_http_get(
+        "https://www.youtube.com/youtubei/v1/browse?prettyPrint=false",
+        headers={"Content-Type": "application/json"}, data=body,
+    ))
     items: list[TrendItem] = []
     seen: set[str] = set()
     for v in _walk_video_renderers(data):

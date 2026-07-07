@@ -23,7 +23,15 @@ python -m trend_dashboard        # http://localhost:8100
   - `YOUTUBE_API_KEY` — 선택. 설정하면 YouTube 공식 Data API로 더 안정적으로 수집 (미설정 시 인기 급상승 페이지 파싱)
   - `TREND_CACHE_TTL` — 캐시 초 (기본 900)
 
-> 참고: Instagram은 공개 트렌드 API가 없어 Google News 기반 관련 소식으로 집계합니다. TikTok은 크리에이티브 센터의 비공식 엔드포인트를 사용하므로 간헐적으로 응답이 막힐 수 있으며, 이 경우 해당 카드에만 오류가 표시되고 나머지는 정상 동작합니다.
+> 참고: Instagram은 공개 트렌드 API가 없어 Google News 기반 관련 소식으로 집계합니다. TikTok은 크리에이티브 센터의 비공식 엔드포인트를 사용하므로 간헐적으로 응답이 막힐 수 있으며, 이 경우 해당 카드에만 오류가 표시되고 나머지는 정상 동작합니다. YouTube는 트렌딩 페이지가 막히면 내부 JSON API(Innertube)로 자동 재시도합니다.
+
+### 클라우드 배포 (어디서나 접속)
+
+저장소의 `render.yaml`에 트렌드 대시보드 서비스(`sns-trend-dashboard`)가 포함되어 있습니다.
+
+1. [render.com](https://render.com) → **New + → Blueprint** → 이 저장소 선택 (브랜치 선택 가능)
+2. `sector-news-agent`와 `sns-trend-dashboard` 두 서비스가 자동 인식됩니다 — 트렌드 대시보드만 원하면 나머지는 건너뛰어도 됩니다.
+3. 트렌드 대시보드는 **API 키·비밀번호 없이 바로 동작**합니다 (환경변수 입력 전부 선택사항). 배포가 끝나면 발급된 URL로 어디서나 접속하세요.
 
 ---
 

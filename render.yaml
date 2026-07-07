@@ -11,3 +11,13 @@ services:
         sync: false        # 대시보드에서 직접 입력 (시크릿)
       - key: APP_PASSWORD
         sync: false        # 공개 URL 접속용 비밀번호 (직접 입력)
+
+  # 소셜미디어 트렌드 대시보드 (API 키·비밀번호 없이 동작, API 비용 없음)
+  - type: web
+    name: sns-trend-dashboard
+    runtime: docker
+    plan: free
+    dockerCommand: python -m trend_dashboard
+    envVars:
+      - key: YOUTUBE_API_KEY
+        sync: false        # 선택: 넣으면 YouTube 공식 API로 더 안정적 수집 (비워둬도 동작)
