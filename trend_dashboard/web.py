@@ -18,6 +18,7 @@ import threading
 import time
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import HTMLResponse, Response
@@ -43,7 +44,9 @@ app = FastAPI(title="소셜미디어 트렌드 대시보드")
 _basic = HTTPBasic(auto_error=False)
 
 
-def require_auth(credentials: HTTPBasicCredentials | None = Depends(_basic)) -> None:
+# macOS 기본 파이썬(3.9) 호환을 위해 `X | None` 대신 Optional 사용
+# (FastAPI가 이 시그니처를 실행 시점에 평가한다)
+def require_auth(credentials: Optional[HTTPBasicCredentials] = Depends(_basic)) -> None:
     if not APP_PASSWORD:
         return
     if credentials is None or not secrets.compare_digest(credentials.password, APP_PASSWORD):

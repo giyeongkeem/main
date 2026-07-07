@@ -16,6 +16,7 @@ import os
 import queue
 import secrets
 import threading
+from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
@@ -32,7 +33,8 @@ app = FastAPI(title="섹터 뉴스 리포트 에이전트")
 _basic = HTTPBasic(auto_error=False)
 
 
-def require_auth(credentials: HTTPBasicCredentials | None = Depends(_basic)) -> None:
+# macOS 기본 파이썬(3.9) 호환을 위해 `X | None` 대신 Optional 사용
+def require_auth(credentials: Optional[HTTPBasicCredentials] = Depends(_basic)) -> None:
     """APP_PASSWORD가 설정된 경우에만 HTTP Basic 인증을 요구한다 (로컬은 무인증)."""
     if not APP_PASSWORD:
         return
