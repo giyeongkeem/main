@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VFAR — 영상 포트폴리오</title>
+  <meta name="description" content="브랜드 필름, 광고, 뮤직비디오 — 영상으로 이야기를 만듭니다. VFAR 영상 포트폴리오." />
+  <meta property="og:title" content="VFAR — 영상 포트폴리오" />
+  <meta property="og:description" content="브랜드 필름, 광고, 뮤직비디오 — 영상으로 이야기를 만듭니다." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== 내비게이션 ===== -->
+  <header class="nav" id="nav">
+    <div class="nav__inner">
+      <a href="#" class="nav__logo">VFAR<span class="accent">.</span></a>
+      <nav class="nav__links" id="navLinks">
+        <a href="#works">Works</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <button class="nav__toggle" id="navToggle" aria-label="메뉴 열기">
+        <span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== 히어로 ===== -->
+  <section class="hero">
+    <div class="hero__bg" aria-hidden="true"></div>
+    <div class="hero__grain" aria-hidden="true"></div>
+    <div class="hero__inner">
+      <p class="hero__eyebrow reveal">VIDEO PRODUCTION · FILM · MOTION</p>
+      <h1 class="hero__title reveal">
+        영상으로<br />
+        <em>이야기</em>를 만듭니다
+      </h1>
+      <p class="hero__desc reveal">
+        브랜드 필름, 광고, 뮤직비디오, 모션그래픽 —<br class="br-mobile" />
+        기획부터 촬영, 편집까지 하나의 시선으로 완성합니다.
+      </p>
+      <div class="hero__actions reveal">
+        <button class="btn btn--primary" id="showreelBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          쇼릴 보기
+        </button>
+        <a href="#works" class="btn btn--ghost">작업 둘러보기</a>
+      </div>
+    </div>
+    <a href="#works" class="hero__scroll" aria-label="아래로 스크롤">
+      <span class="hero__scroll-line"></span>
+    </a>
+  </section>
+
+  <!-- ===== 작업물 ===== -->
+  <section class="works section" id="works">
+    <div class="section__inner">
+      <div class="section__head reveal">
+        <p class="section__eyebrow">SELECTED WORKS</p>
+        <h2 class="section__title">작업물</h2>
+      </div>
+
+      <div class="works__filters reveal" id="filters" role="tablist" aria-label="작업 카테고리 필터"></div>
+
+      <div class="works__grid" id="worksGrid"></div>
+    </div>
+  </section>
+
+  <!-- ===== 소개 ===== -->
+  <section class="about section" id="about">
+    <div class="section__inner about__inner">
+      <div class="about__text reveal">
+        <p class="section__eyebrow">ABOUT</p>
+        <h2 class="section__title">보는 순간,<br />기억되는 영상</h2>
+        <p class="about__desc">
+          VFAR는 영상 기획·연출·촬영·편집을 아우르는 영상 제작 스튜디오입니다.
+          브랜드의 목소리를 가장 잘 전달할 수 있는 톤과 리듬을 찾아,
+          짧은 순간에도 오래 남는 장면을 만듭니다.
+        </p>
+        <ul class="about__services">
+          <li><span class="num">01</span>브랜드 필름 &amp; 광고</li>
+          <li><span class="num">02</span>뮤직비디오 &amp; 퍼포먼스</li>
+          <li><span class="num">03</span>모션그래픽 &amp; 타이틀</li>
+          <li><span class="num">04</span>행사 스케치 &amp; 인터뷰</li>
+        </ul>
+      </div>
+      <div class="about__stats reveal">
+        <div class="stat"><strong data-count="120">0</strong><span>+ 프로젝트</span></div>
+        <div class="stat"><strong data-count="8">0</strong><span>년 경력</span></div>
+        <div class="stat"><strong data-count="40">0</strong><span>+ 클라이언트</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 컨택트 ===== -->
+  <section class="contact section" id="contact">
+    <div class="section__inner contact__inner reveal">
+      <p class="section__eyebrow">CONTACT</p>
+      <h2 class="contact__title">함께 만들고 싶은<br />영상이 있나요?</h2>
+      <a href="mailto:giyeong@vfar.kr" class="contact__mail">giyeong@vfar.kr</a>
+      <div class="contact__socials">
+        <a href="#" target="_blank" rel="noopener">Instagram</a>
+        <a href="#" target="_blank" rel="noopener">YouTube</a>
+        <a href="#" target="_blank" rel="noopener">Vimeo</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <p>© 2026 VFAR. All rights reserved.</p>
+  </footer>
+
+  <!-- ===== 라이트박스 ===== -->
+  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true">
+    <button class="lightbox__close" id="lightboxClose" aria-label="닫기">&times;</button>
+    <div class="lightbox__body" id="lightboxBody"></div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
