@@ -61,6 +61,9 @@ class _HomeScreenState extends State<HomeScreen>
       });
     }
 
+    // Android 12+/13+ 주차 감지용 권한(블루투스·알림) — 없으면 감지 알림이 조용히 실패함
+    await NativeBridge.requestParkingPermissions();
+
     // 딥링크 eodijucha://quick — iOS 단축어/안드로이드 자동화 연동
     final appLinks = AppLinks();
     try {

@@ -17,4 +17,16 @@ class NativeBridge {
       return false;
     }
   }
+
+  /// 주차 감지(알림·블루투스) 런타임 권한 요청 — Android 12+/13+에서 필수.
+  /// iOS/미지원 환경에서는 조용히 무시된다.
+  static Future<void> requestParkingPermissions() async {
+    try {
+      await _channel.invokeMethod<bool>('requestParkingPermissions');
+    } on MissingPluginException {
+      // iOS 등 채널 없음 — 무시
+    } on PlatformException {
+      // 권한 요청 실패 — 무시 (알림 기능만 비활성)
+    }
+  }
 }

@@ -265,7 +265,8 @@ class _RecordTabState extends State<RecordTab>
                 const SizedBox(height: 10),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(11),
-                  child: Image.file(File(_photoPath!), fit: BoxFit.cover),
+                  child: Image.file(File(_photoPath!),
+                      fit: BoxFit.cover, cacheWidth: 1080),
                 ),
               ],
             ],

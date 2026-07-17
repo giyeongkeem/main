@@ -18,7 +18,7 @@
 
 ### 주차 순간 자동 기록 (`?quick`)
 
-`https://<배포주소>/?quick` 을 열면 GPS + 건물 이름을 자동으로 채워 **즉시 저장**됩니다.
+`https://giyeongkeem.github.io/main/?quick` 을 열면 GPS + 건물 이름을 자동으로 채워 **즉시 저장**됩니다.
 폰 자동화와 묶으면 차에서 내리는 순간 자동 기록됩니다:
 
 - **iPhone**: 단축어 앱 → 자동화 → "블루투스 — 차량 오디오 연결 해제 시" → "URL 열기: `https://…/?quick`"
@@ -42,7 +42,9 @@
 
 ## 실행 방법
 
-정적 파일이라 아무 웹서버로나 열면 됩니다.
+**서비스 주소: https://giyeongkeem.github.io/main/** (푸시하면 자동 재배포)
+
+로컬 실행도 가능합니다:
 
 ```bash
 cd parking-tracker

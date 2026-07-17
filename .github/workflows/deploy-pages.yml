@@ -1,0 +1,39 @@
+name: 어디주차 웹앱 배포 (GitHub Pages)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/parking-location-tracker-hp4cx3, main]
+    paths: ["parking-tracker/**", ".github/workflows/deploy-pages.yml"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pages 설정 (최초 1회 자동 활성화)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: 정적 파일 업로드
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: parking-tracker
+
+      - name: 배포
+        id: deployment
+        uses: actions/deploy-pages@v4

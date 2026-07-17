@@ -164,7 +164,9 @@ class _CurrentTabState extends State<CurrentTab> {
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(11),
-                  child: Image.file(File(r.photoPath!), fit: BoxFit.cover),
+                  // cacheWidth: 화면 폭 수준으로만 디코딩해 메모리·스크롤 성능 확보
+                  child: Image.file(File(r.photoPath!),
+                      fit: BoxFit.cover, cacheWidth: 1080),
                 ),
               ],
               const SizedBox(height: 14),
