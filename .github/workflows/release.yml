@@ -3,12 +3,19 @@ name: 어디주차 릴리즈 (v* 태그)
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "릴리즈 버전 태그 (예: v1.0.0)"
+        required: true
+        default: "v1.0.0"
 
 permissions:
   contents: write
 
 env:
   FLUTTER_VERSION: "3.32.8"
+  VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
 jobs:
   ios:
@@ -30,7 +37,7 @@ jobs:
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -qry eodijucha-${{ github.ref_name }}-unsigned.ipa Payload
+          zip -qry "eodijucha-${VERSION}-unsigned.ipa" Payload
       - uses: actions/upload-artifact@v4
         with:
           name: release-ipa
@@ -55,7 +62,7 @@ jobs:
       - run: flutter pub get
       - run: flutter build apk --release
       - name: APK 이름 정리
-        run: cp build/app/outputs/flutter-apk/app-release.apk eodijucha-${{ github.ref_name }}.apk
+        run: cp build/app/outputs/flutter-apk/app-release.apk "eodijucha-${VERSION}.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: release-apk
@@ -71,7 +78,9 @@ jobs:
       - name: GitHub Release 생성
         uses: softprops/action-gh-release@v2
         with:
-          name: "어디주차 ${{ github.ref_name }}"
+          tag_name: ${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          name: "어디주차 ${{ env.VERSION }}"
           generate_release_notes: true
           body: |
             ## 설치 방법
