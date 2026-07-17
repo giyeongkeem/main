@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Claude Code + Codex 사용량 수집기 launchd 설정 (10분 간격)
+
+  사용 전 아래 3곳을 수정하세요:
+    1. /PATH/TO/collect_usage.py  → 실제 스크립트 절대 경로
+    2. ghp_YOUR_TOKEN_HERE        → gist 권한이 있는 GitHub 토큰
+    3. YOUR_GIST_ID_HERE          → collect_usage.py -\-create-gist 가 출력한 gist id
+
+  등록:
+    cp com.usage-widget.collector.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.usage-widget.collector.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.usage-widget.collector</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/PATH/TO/collect_usage.py</string>
+        <string>--gist-id</string>
+        <string>YOUR_GIST_ID_HERE</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>GITHUB_TOKEN</key>
+        <string>ghp_YOUR_TOKEN_HERE</string>
+    </dict>
+
+    <key>StartInterval</key>
+    <integer>600</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/usage-widget-collector.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/usage-widget-collector.log</string>
+</dict>
+</plist>
