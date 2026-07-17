@@ -6,6 +6,9 @@ on:
     branches: [claude/parking-location-tracker-hp4cx3, main]
     paths: ["parking-app/**", ".github/workflows/build-app.yml"]
 
+permissions:
+  contents: write
+
 env:
   FLUTTER_VERSION: "3.32.8"
 
@@ -82,3 +85,47 @@ jobs:
           name: eodijucha-android-apk
           path: parking-app/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 14
+
+  # ---------- 릴리즈: 빌드 성공 시 pubspec 버전으로 자동 생성/갱신 ----------
+  release:
+    needs: [ios, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 버전 읽기 (pubspec.yaml)
+        id: ver
+        run: |
+          V=$(grep '^version:' parking-app/pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          echo "version=v$V" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - name: 파일 이름 정리
+        run: |
+          mv dist/eodijucha-unsigned.ipa "dist/eodijucha-${{ steps.ver.outputs.version }}-unsigned.ipa"
+          mv dist/app-release.apk "dist/eodijucha-${{ steps.ver.outputs.version }}.apk"
+          ls -lh dist
+
+      - name: GitHub Release 생성/갱신
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: "어디주차 ${{ steps.ver.outputs.version }}"
+          body: |
+            ## 설치 방법
+
+            ### 갤럭시 / 안드로이드
+            아래 `eodijucha-*.apk`를 폰에서 받아 열면 바로 설치됩니다. (설정에서 "출처를 알 수 없는 앱 설치" 허용 필요)
+
+            ### 아이폰
+            `eodijucha-*-unsigned.ipa`는 서명이 없는 파일입니다. Mac(Xcode) 또는 PC의 [Sideloadly](https://sideloadly.io/)로
+            본인 Apple ID 서명 후 설치하세요. 자세한 방법: [parking-app/README.md](https://github.com/giyeongkeem/main/blob/claude/parking-location-tracker-hp4cx3/parking-app/README.md)
+
+            ### 웹 버전 (설치 없이 바로 사용)
+            https://giyeongkeem.github.io/main/
+          files: dist/*
